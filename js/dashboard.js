@@ -61,7 +61,7 @@ function renderDashboard(){
 
   const rankRag=v=>v==null?1:({Red:0,Amber:1,Green:2}[v]??1);
   const healthRows=S.clients.map(c=>{
-    const iR=integRagLabel(c),implR=c.modules!==undefined?implAutoRag(c):null,amsR=c.workLog!==undefined?amsRagLabel(c):null;
+    const iR=integRagLabel(c),implR=c.modules!==undefined?implAutoRag(c):null,amsR=c.workLog!==undefined?amsClientRag(c):null;
     const overall=overallRagLabel(iR,implR,amsR);
     const hist=S.snapshotHistory.filter(s=>s.client_id===c.id).sort((a,b)=>a.snapshot_date.localeCompare(b.snapshot_date));
     let trend=hist.length?'same':'new';

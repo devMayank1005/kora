@@ -172,7 +172,7 @@ function renderImplPhaseDetail(clientId,moduleId,phaseName){
           ${can('edit')?`<textarea id="ip-next" rows="2" placeholder="What is the next planned step?" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(ph.nextAction||'')}</textarea>`:
           `<p class="text-sm text-gray-700">${esc(ph.nextAction||'—')}</p>`}
         </div>
-        ${can('edit')?`<button data-act="save-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition">Save Details</button>`:''}
+        ${can('edit')?`<button data-act="save-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition flex items-center justify-center gap-2">Save Details <kbd class="text-[10px] font-normal opacity-60 border border-white/30 rounded px-1.5 py-0.5">${kbdHint('S')}</kbd></button>`:''}
       </div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 p-6">

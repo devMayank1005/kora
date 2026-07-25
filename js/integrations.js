@@ -12,7 +12,7 @@ function renderClientList(){
     ${[['Clients',S.clients.length,'text-[#0e7490]','bg-[#0e7490]/10'],['Total Integrations',ti,'text-gray-700','bg-gray-100'],['In Progress',ip,'text-[#0e7490]','bg-cyan-50'],['At Risk',ar,'text-rose-600','bg-rose-50']].map(([l,v,tc,bg])=>`<div class="${bg} rounded-2xl p-4"><div class="text-2xl font-bold ${tc}">${v}</div><div class="text-xs text-gray-500 mt-0.5">${l}</div></div>`).join('')}
   </div>
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-    <h1 class="text-xl font-bold text-gray-900">Clients</h1>
+    <h1 class="text-xl font-bold text-gray-900">Integrations</h1>
     <div class="flex items-center gap-2">
       <input id="search-inp" data-act="search" type="text" placeholder="Search clients…" value="${esc(S.search)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
       <button data-act="modal-open" data-modal="add-client" class="whitespace-nowrap btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition">+ Add Client</button>
@@ -162,7 +162,7 @@ function renderIntegDetail(clientId,integId){
           ${can('edit')?`<textarea id="f-next" rows="2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(i.nextAction||'')}</textarea>`:
           `<p class="text-sm text-gray-700">${esc(i.nextAction||'—')}</p>`}
         </div>
-        ${can('edit')?`<button data-act="save-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition">Save Details</button>`:''}
+        ${can('edit')?`<button data-act="save-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition flex items-center justify-center gap-2">Save Details <kbd class="text-[10px] font-normal opacity-60 border border-white/30 rounded px-1.5 py-0.5">${kbdHint('S')}</kbd></button>`:''}
         ${can('edit')&&i.status!=='Completed'?`<button data-act="mark-complete" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-green-700 bg-green-50 hover:bg-green-100 font-medium rounded-xl py-2 text-xs transition">✓ Mark as Complete</button>`:''}
         ${can('admin')?`<button data-act="delete-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-rose-400 hover:text-rose-600 text-xs py-1 transition">Delete Integration</button>`:''}
       </div>

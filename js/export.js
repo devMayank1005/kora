@@ -429,6 +429,7 @@ function exportAmsInvoicePdf(clientId){
     const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',format:'a4',unit:'mm'});
     const W=297,H=210,NV=[13,61,79],MG=[181,23,158];
     const t=amsTotals(c,S.amsFrom,S.amsTo);
+    const curSym=currencySymbol(c),curLoc=c.currency==='USD'?'en-US':'en-IN';
     const periodLabel=(S.amsFrom||S.amsTo)?`${S.amsFrom?fmtDate(S.amsFrom):'Start'} - ${S.amsTo?fmtDate(S.amsTo):'Today'}`:'All Time';
     const drawHeaderBar=()=>{
       doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);
@@ -438,7 +439,7 @@ function exportAmsInvoicePdf(clientId){
     drawHeaderBar();
     doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor(100,116,139);
     doc.text(`Billing Period: ${periodLabel}`,10,21);
-    doc.text(`Day Rate: Rs. ${(c.manDayRate||0).toLocaleString('en-IN')} (${HOURS_PER_DAY}-hour day)`,10,26);
+    doc.text(`Day Rate: ${curSym}${(c.manDayRate||0).toLocaleString(curLoc)} (${HOURS_PER_DAY}-hour day)`,10,26);
     doc.text(`Generated: ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}`,W-10,21,{align:'right'});
     let boxY=30;
     if(t.hasBucket){
@@ -446,27 +447,27 @@ function exportAmsInvoicePdf(clientId){
       .forEach((s,i)=>{const x=10+i*92;doc.setFillColor(...(i===2?(t.balanceAvailable>0?[34,197,94]:[190,24,93]):[100,116,139]));doc.roundedRect(x,boxY,86,16,2,2,'F');doc.setFont('helvetica','bold');doc.setFontSize(13);doc.setTextColor(255,255,255);doc.text(s.v,x+6,boxY+10);doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.text(s.l,x+6,boxY+14.5);});
       boxY+=20;
     }
-    [{l:'Hours This Period',v:t.totalHours.toFixed(1)},{l:'Total Days',v:(t.totalHours/HOURS_PER_DAY).toFixed(2)},{l:'Billable Amount (Rs.)',v:t.totalAmount.toLocaleString('en-IN',{maximumFractionDigits:0})}]
+    [{l:'Hours This Period',v:t.totalHours.toFixed(1)},{l:'Total Days',v:(t.totalHours/HOURS_PER_DAY).toFixed(2)},{l:`Billable Amount (${curSym})`,v:t.totalAmount.toLocaleString(curLoc,{maximumFractionDigits:0})}]
     .forEach((s,i)=>{const x=10+i*92;doc.setFillColor(...(i===2?MG:NV));doc.roundedRect(x,boxY,86,16,2,2,'F');doc.setFont('helvetica','bold');doc.setFontSize(15);doc.setTextColor(255,255,255);doc.text(String(s.v),x+6,boxY+10);doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.text(s.l,x+6,boxY+14.5);});
     const tableStartY=boxY+24;
-    const sorted=[...t.log].sort((a,b)=>a.date.localeCompare(b.date));
+    const sorted=[...t.log].sort((a,b)=>entryDate(a).localeCompare(entryDate(b)));
     doc.autoTable({
       startY:tableStartY,
       margin:{top:18,left:10,right:10,bottom:10},
-      head:[['Date','Category','Description','Hours','Amount (Rs.)']],
-      body:sorted.map(e=>[fmtDate(e.date),e.category,e.description||'-',Number(e.hours).toFixed(1),t.hasBucket?'Pooled':amsEntryAmount(Number(e.hours),c.manDayRate||0).toLocaleString('en-IN',{maximumFractionDigits:0})]),
+      head:[['Date','Category','Description','Hours',`Amount (${curSym})`]],
+      body:sorted.map(e=>[fmtDate(entryDate(e)),entryType(e),e.description||'-',Number(e.hours).toFixed(1),t.hasBucket?'Pooled':amsEntryAmount(Number(e.hours),c.manDayRate||0).toLocaleString(curLoc,{maximumFractionDigits:0})]),
       headStyles:{fillColor:NV,textColor:[255,255,255],fontStyle:'bold',fontSize:9},
       styles:{fontSize:8.5,cellPadding:3},
       alternateRowStyles:{fillColor:[245,249,250]},
       columnStyles:{0:{cellWidth:28},1:{cellWidth:35},2:{cellWidth:'auto'},3:{cellWidth:22,halign:'right'},4:{cellWidth:30,halign:'right'}},
       didDrawPage:drawHeaderBar,
     });
-    const catRows=Object.entries(t.byType).map(([cat,hrs])=>[cat,hrs.toFixed(1),t.hasBucket?'Pooled':(amsEntryAmount(hrs,c.manDayRate||0)||0).toLocaleString('en-IN',{maximumFractionDigits:0})]);
+    const catRows=Object.entries(t.byType).map(([cat,hrs])=>[cat,hrs.toFixed(1),t.hasBucket?'Pooled':(amsEntryAmount(hrs,c.manDayRate||0)||0).toLocaleString(curLoc,{maximumFractionDigits:0})]);
     if(catRows.length){
       doc.autoTable({
         startY:doc.lastAutoTable.finalY+8,
         margin:{top:18,left:10,right:10,bottom:10},
-        head:[['Breakdown by Category','Hours','Amount (Rs.)']],
+        head:[['Breakdown by Category','Hours',`Amount (${curSym})`]],
         body:catRows,
         headStyles:{fillColor:[100,116,139],textColor:[255,255,255],fontStyle:'bold',fontSize:9},
         styles:{fontSize:8.5,cellPadding:3},

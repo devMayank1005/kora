@@ -1,8 +1,4 @@
 /* ═══════════════════════════════════════════════════════════════════
-   KORA DESIGN SYSTEM v2
-   Deep-charcoal primary, teal supporting, monochrome status
-═══════════════════════════════════════════════════════════════════ */
-/* ═══════════════════════════════════════════════════════════════════
    KORA DESIGN SYSTEM v3 — Trust Blue Enterprise
    Slate-blue neutrals, #2563EB primary, Roboto, denser data-dashboard scale
 ═══════════════════════════════════════════════════════════════════ */
@@ -337,19 +333,6 @@ label { font-size: 11px; font-weight: 500; color: var(--mute); text-transform: u
 .text-gray-800 { color: var(--ink) !important; }
 .text-gray-900 { color: var(--ink) !important; }
 
-/* Old status badge classes get remapped to k-status style */
-.bg-green-50, .bg-green-100 { background: transparent !important; border-color: transparent !important; }
-.bg-cyan-50, .bg-cyan-100 { background: transparent !important; border-color: transparent !important; }
-.bg-rose-50, .bg-rose-100 { background: transparent !important; border-color: transparent !important; }
-.bg-amber-50, .bg-amber-100 { background: transparent !important; border-color: transparent !important; }
-.bg-violet-50, .bg-violet-100 { background: transparent !important; border-color: transparent !important; }
-.bg-purple-50, .bg-purple-100 { background: transparent !important; border-color: transparent !important; }
-.bg-sky-50, .bg-sky-100 { background: transparent !important; border-color: transparent !important; }
-.bg-orange-50, .bg-orange-100 { background: transparent !important; border-color: transparent !important; }
-
-/* Old text colours normalized to ink */
-.text-green-700, .text-cyan-800, .text-rose-700, .text-rose-600, .text-violet-700, .text-purple-700,
-.text-amber-700, .text-sky-700, .text-orange-700 { color: var(--ink) !important; }
 
 /* Buttons using btn-grad get mapped to k-btn-primary look */
 .btn-grad {

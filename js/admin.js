@@ -3,7 +3,7 @@ function renderAdmin(){
   return`<div class="k-page fade">
   <h1 class="text-xl font-bold text-gray-900 mb-5">Admin</h1>
   <div class="flex border-b border-gray-200 mb-6 gap-1 overflow-x-auto">
-    ${[['integrations','Clients & Integrations'],['implementations','Implementation Clients'],['ams','AMS Clients'],['users','Users'],['audit','Audit Log']].map(([t,l])=>`<button data-act="admin-tab" data-tab="${t}" class="whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition ${S.adminTab===t?'border-[#0e7490] text-[#0e7490]':'border-transparent text-gray-500 hover:text-gray-800'}">${l}</button>`).join('')}
+    ${[['integrations','Integrations'],['implementations','Implementations'],['ams','AMS & Support'],['users','Users'],['audit','Audit Log']].map(([t,l])=>`<button data-act="admin-tab" data-tab="${t}" class="whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 transition ${S.adminTab===t?'border-[#0e7490] text-[#0e7490]':'border-transparent text-gray-500 hover:text-gray-800'}">${l}</button>`).join('')}
   </div>
   ${S.adminTab==='integrations'?renderAdminClients():S.adminTab==='implementations'?renderAdminImpl():S.adminTab==='ams'?renderAdminAms():S.adminTab==='audit'?renderAdminAudit():renderAdminUsers()}
 </div>`;

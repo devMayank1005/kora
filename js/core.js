@@ -1,6 +1,6 @@
 const KOGNOZ_LOGO="/kognoz_Iogo.png";
 // ─── STATE ────────────────────────────────────────────────────────
-const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),cmdPaletteOpen:false,cmdQuery:'',recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null};
+const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null};
 
 try{S.sidebarCollapsed=localStorage.getItem('itk_sb_collapsed')==='1';}catch(e){}
 try{const r=localStorage.getItem('itk_recent');if(r)S.recentlyViewed=JSON.parse(r);}catch(e){}
@@ -115,6 +115,8 @@ function parseUsersCsv(text){
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+const IS_MAC=/Mac|iPod|iPhone|iPad/.test(navigator.platform||navigator.userAgent||'');
+function kbdHint(letter){return IS_MAC?`⌘${letter}`:`Ctrl+${letter}`;}
 // Eye / eye-slash toggle button for a password field. Pure DOM toggle (see
 // the 'toggle-pwd' handler in events.js) — deliberately does NOT call
 // render(), since these inputs aren't bound to S state; re-rendering would
@@ -223,16 +225,6 @@ function integRagLabel(c){
   if(stale>0)return'Amber';
   return'Green';
 }
-function amsRagLabel(c){
-  const log=c.workLog||[];
-  if(!log.length)return null;
-  const open=log.filter(e=>e.entryStatus!=='Closed');
-  if(open.some(e=>e.ragStatus==='Red'||(e.queryLevel||'').includes('L4')))return'Red';
-  const t=amsTotals(c,'','');
-  if(t.hasBucket&&t.balanceAvailable!==null&&t.balanceAvailable<=Math.max(2,t.totalAvailableHours*0.15))return'Red';
-  if(open.some(e=>e.ragStatus==='Amber'||(e.queryLevel||'').includes('L3')))return'Amber';
-  return'Green';
-}
 function overallRagLabel(...rags){
   const present=rags.filter(Boolean);
   if(!present.length)return null;
@@ -259,7 +251,7 @@ async function ensureSnapshotCaptured(){
       const implRag=isImpl?implAutoRag(c):null;
       const pr=isImpl?implProgress(c):{completed:0,total:0};
       const isAms=c.workLog!==undefined;
-      const amsRag=isAms?amsRagLabel(c):null;
+      const amsRag=isAms?amsClientRag(c):null;
       const openEntries=(c.workLog||[]).filter(e=>e.entryStatus!=='Closed');
       const amsOpenL3L4=openEntries.filter(e=>{const q=e.queryLevel||'';return q.includes('L3')||q.includes('L4');}).length;
       const monthStart=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().slice(0,10);
@@ -384,12 +376,11 @@ async function loadAuditLog(){
   finally{S.auditLoading=false;render();}
 }
 async function saveClients(msg){
-  // The server-side write.js always fetches the fresh SHA from GitHub before
-  // writing, so stale-SHA conflicts are resolved there. We still update our
-  // local S.shas.clients with the new SHA returned by the server so the NEXT
-  // save has the freshest possible starting point.
-  // On any error we also refresh our SHA from GitHub so a retry attempt
-  // doesn't compound a stale-SHA problem.
+  // Historical note: this used to matter for SHA-conflict resolution back
+  // when writes went through the GitHub Contents API. That's long gone —
+  // write.js now talks to Supabase directly (last-write-wins per row, no SHA
+  // concept at all). The 'sha' field below is vestigial and always just
+  // 'supabase'; kept only so the request/response shape didn't need changing.
   try{
     S.shas.clients=await apiWrite('data/clients.json',S.clients,S.shas.clients,msg||'Update clients');
   }catch(err){

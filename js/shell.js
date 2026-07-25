@@ -75,7 +75,7 @@ function renderCmdPalette(){
         ${!q&&!list.length?`<p class="text-sm text-gray-400 text-center py-8">${emptyIcon('search')}Start typing to search everything.</p>`:''}
         ${!q&&list.length?`<div class="px-2 pt-1 pb-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Recently Viewed</div>`:''}
         ${q&&!list.length?`<p class="text-sm text-gray-400 text-center py-8">${emptyIcon('search')}No matches for "${esc(S.cmdQuery)}"</p>`:''}
-        ${list.map((r,idx)=>`<button data-act="cmdp-go" data-idx="${idx}" style="animation-delay:${idx*15}ms" class="row-in w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-[#0e7490]/8 transition-colors">
+        ${list.map((r,idx)=>`<button data-act="cmdp-go" data-idx="${idx}" style="animation-delay:${idx*15}ms" class="row-in w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${idx===Math.min(S.cmdSelectedIdx,list.length-1)?'bg-[#0e7490]/8':'hover:bg-[#0e7490]/8'}">
           <span class="text-base shrink-0">${icon[r.type]||'📄'}</span>
           <div class="min-w-0 flex-1"><div class="text-sm font-medium text-gray-800 truncate">${esc(r.label)}</div><div class="text-xs text-gray-400 truncate">${esc(r.sub||'')}</div></div>
         </button>`).join('')}
@@ -195,7 +195,7 @@ function renderSidebar(){
   <div class="px-3 pt-3 pb-1">
     <button data-act="cmdp-open" class="w-full flex items-center gap-2 k-side-search rounded-md px-2.5 ${collapsed?'justify-center':''}">
       ${ico.search}
-      ${collapsed?'':`<span class="flex-1 text-left label-fade" style="font-size:12px;">Search…</span><kbd style="font-size:10px;padding:1px 5px;border:1px solid rgba(255,255,255,.1);border-radius:3px;color:#71717a;font-family:var(--font);">⌘K</kbd>`}
+      ${collapsed?'':`<span class="flex-1 text-left label-fade" style="font-size:12px;">Search…</span><kbd style="font-size:10px;padding:1px 5px;border:1px solid rgba(255,255,255,.1);border-radius:3px;color:#71717a;font-family:var(--font);">${kbdHint('K')}</kbd>`}
     </button>
   </div>
   <nav class="flex-1 overflow-y-auto sidebar-scroll pt-2 pb-3">
@@ -231,18 +231,6 @@ function renderSidebar(){
 </aside>`;
 }
 
-function lockIcon(cls='w-3.5 h-3.5'){return`<svg class="${cls} shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-12V7a4 4 0 10-8 0v4h8z"/></svg>`;}
-function encBadge(opts={}){
-  const{compact=false}=opts;
-  if(compact){
-    return`<div class="flex items-center justify-center" title="Secured with AES-256 industry-grade encryption">
-      <div class="w-8 h-8 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-base">🔒</div>
-    </div>`;
-  }
-  return`<div class="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 text-gray-500 text-[11px] font-medium px-3.5 py-2 rounded-2xl leading-tight text-center">
-    <span class="text-sm">🔒</span><span>Secured with AES-256 industry-grade encryption</span>
-  </div>`;
-}
 function renderLogin(){
   const board=[
     ['Completed','SAP S/4HANA rollout',100],

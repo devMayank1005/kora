@@ -1,7 +1,7 @@
-// api/read.js — Supabase version
-// Replaces the GitHub-backed read after migration.
-// Returns same interface as before: { content: base64(json), sha: 'supabase' }
-// Frontend needs zero changes.
+// api/read.js — reads clients/users from Supabase Postgres.
+// Response shape (content: base64(json), sha: 'supabase') is a holdover from
+// this project's pre-Supabase, GitHub-Contents-API-backed version — kept
+// as-is so the frontend never needed to change when the backend migrated.
 
 const { validateToken } = require('./_auth');
 const { applyCors } = require('./_cors');

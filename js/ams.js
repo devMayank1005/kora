@@ -20,17 +20,24 @@ function parseAmsEntriesCsv(text){
     return{dateRaised:date_raised,dueDate:due_date||'',raisedBy:raised_by||'',module:module||'',project:project||'',description:description||'',type:type||AMS_TYPES[0],queryLevel:query_level||AMS_QUERY_LEVELS[0],entryStatus:entry_status||'Open',modeOfSupport:mode_of_support||AMS_MODES[0],hours:parseFloat(hours)||0,error,row:i+(hasHeader?2:1)};
   });
 }
+// The single, canonical AMS health formula — used by the AMS pages AND the
+// Dashboard Health Scorecard/snapshot capture. Previously these lived as two
+// separate, disagreeing functions (this one, and core.js's amsRagLabel) that
+// could show a client as Green here and Red on the Dashboard for identical
+// underlying data. Merged: this now checks everything either version checked.
 function amsClientRag(client){
   const entries=client.workLog||[];
-  const open=entries.filter(e=>(e.entryStatus||'Open')!=='Closed');
   if(!entries.length)return null;
+  const open=entries.filter(e=>(e.entryStatus||'Open')!=='Closed');
   if(open.some(e=>e.ragStatus==='Red'))return'Red';
+  if(open.some(e=>(e.queryLevel||'').includes('L4')))return'Red';
   if(open.some(e=>e.dueDate&&e.dueDate<todayStr()))return'Red';
+  const t=amsTotals(client,'','');
+  if(t.hasBucket&&t.balanceAvailable!==null&&t.balanceAvailable<=Math.max(2,t.totalAvailableHours*0.15))return'Red';
   if(open.some(e=>e.ragStatus==='Amber'))return'Amber';
+  if(open.some(e=>(e.queryLevel||'').includes('L3')))return'Amber';
   const threeDays=new Date();threeDays.setDate(threeDays.getDate()+3);const soonStr=threeDays.toISOString().slice(0,10);
   if(open.some(e=>e.dueDate&&e.dueDate<=soonStr&&e.dueDate>=todayStr()))return'Amber';
-  if(open.length===0&&entries.length>0)return'Green';
-  if(open.every(e=>!e.ragStatus||e.ragStatus==='Green'))return'Green';
   return'Green';
 }
 function amsTotals(client,fromDate,toDate){
@@ -63,15 +70,25 @@ function renderAmsClientList(){
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     ${(()=>{const amsClients=S.clients.filter(c=>c.workLog!==undefined);return amsClients.length?amsClients.map((c,idx)=>{
       const t=amsTotals(c,'','');
+      const log=c.workLog||[];
+      const open=log.filter(e=>(e.entryStatus||'Open')!=='Closed');
+      const atRisk=open.filter(e=>e.ragStatus==='Red'||e.ragStatus==='Amber'||(e.queryLevel||'').includes('L3')||(e.queryLevel||'').includes('L4')).length;
+      const rag=amsClientRag(c);
+      const ringColor=rag?RAG_HEX[rag]:'var(--mute-2)';
+      const pct=t.hasBucket&&t.totalAvailableHours?Math.min(100,t.consumedAllTime/t.totalAvailableHours*100):(log.length?(log.length-open.length)/log.length*100:0);
       return`<div data-act="open-ams-client" data-id="${esc(c.id)}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
-        <div class="flex items-start justify-between mb-1">
-          <div class="font-semibold text-gray-900" title="${esc(c.name)}">${esc(c.name)}</div>
-          ${ragBadge(amsClientRag(c))}
+        <div class="flex items-center gap-3.5">
+          ${ringSvg(pct,ringColor)}
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-gray-900 truncate" title="${esc(c.name)}">${esc(c.name)}</div>
+            <div class="text-xs text-gray-400 mt-0.5 truncate">${c.description?esc(c.description):`${log.length} entr${log.length!==1?'ies':'y'} logged`}</div>
+          </div>
         </div>
-        ${c.description?`<div class="text-xs text-gray-400 mb-3 truncate" title="${esc(c.description)}">${esc(c.description)}</div>`:''}
-        <div class="text-xs text-gray-500">${t.totalHours.toFixed(1)} hours logged total</div>
-        ${can('admin')&&c.manDayRate?`<div class="text-xs text-gray-400 mt-1">${currencySymbol(c)}${c.manDayRate.toLocaleString('en-IN')}/day rate</div>`:can('admin')?`<div class="text-xs text-gray-400 mt-1">Retainer (no rate)</div>`:''}
-        ${t.hasBucket?`<div class="text-xs mt-1 ${t.balanceAvailable>0?'text-green-600':'text-rose-600'} font-medium">${t.balanceAvailable.toFixed(1)} / ${t.totalAvailableHours.toFixed(1)} hrs available</div>`:''}
+        <div class="flex gap-5 mt-3.5 pt-3 border-t border-gray-100">
+          ${miniStat(log.length,'entries')}
+          ${miniStat(open.length,'open',open.length>0?'var(--teal)':undefined)}
+          ${miniStat(atRisk,'at risk',atRisk>0?'var(--red)':undefined)}
+        </div>
       </div>`;
     }).join(''):`<div class="col-span-3 text-center py-16 text-gray-400">${emptyIcon('hours')}No AMS clients yet.</div>`;})()}
   </div>
@@ -115,8 +132,8 @@ function renderAmsClientDetail(clientId){
     </div>
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Hours This Period${t.hasBucket?` (${t.coveredHours.toFixed(1)} covered)`:''}</div></div>
-      <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${currencySymbol(c)}${(c.manDayRate||0).toLocaleString('en-IN')}</div><div class="text-xs text-gray-500">Day Rate</div></div>
-      <div class="bg-[#0e7490]/10 rounded-xl p-4"><div class="text-2xl font-bold text-[#0e7490]">${currencySymbol(c)}${(t.totalAmount||0).toLocaleString('en-IN',{maximumFractionDigits:0})}</div><div class="text-xs text-gray-500">Billable Amount</div></div>
+      <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${currencySymbol(c)}${(c.manDayRate||0).toLocaleString(c.currency==='USD'?'en-US':'en-IN')}</div><div class="text-xs text-gray-500">Day Rate</div></div>
+      <div class="bg-[#0e7490]/10 rounded-xl p-4"><div class="text-2xl font-bold text-[#0e7490]">${currencySymbol(c)}${(t.totalAmount||0).toLocaleString(c.currency==='USD'?'en-US':'en-IN',{maximumFractionDigits:0})}</div><div class="text-xs text-gray-500">Billable Amount</div></div>
     </div>
     <div class="flex flex-wrap gap-2">
       ${Object.entries(t.byType).map(([tp,hrs])=>`<span class="text-xs bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-gray-600">${esc(tp)}: ${hrs.toFixed(1)}h</span>`).join('')||'<span class="text-xs text-gray-400">No entries in this range</span>'}
