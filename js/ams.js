@@ -62,7 +62,14 @@ function amsTotals(client,fromDate,toDate){
   return{log,totalHours,totalAmount,byType,hasRate,hasBucket,totalAvailableHours:bucket,billableHours,coveredHours,consumedAllTime:allTimeHours,balanceAvailable};
 }
 function renderAmsClientList(){
+  const amsClients=S.clients.filter(c=>c.workLog!==undefined);
+  const totalEntries=amsClients.reduce((a,c)=>a+(c.workLog?.length||0),0);
+  const openEntries=amsClients.reduce((a,c)=>a+(c.workLog||[]).filter(e=>(e.entryStatus||'Open')!=='Closed').length,0);
+  const atRiskEntries=amsClients.reduce((a,c)=>a+(c.workLog||[]).filter(e=>(e.entryStatus||'Open')!=='Closed'&&(e.ragStatus==='Red'||e.ragStatus==='Amber'||(e.queryLevel||'').includes('L3')||(e.queryLevel||'').includes('L4'))).length,0);
   return`<div class="k-page fade">
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    ${[['Clients',amsClients.length,'text-[#0e7490]','bg-[#0e7490]/10'],['Total Entries',totalEntries,'text-gray-700','bg-gray-100'],['Open',openEntries,'text-[#0e7490]','bg-cyan-50'],['At Risk',atRiskEntries,'text-rose-600','bg-rose-50']].map(([l,v,tc,bg])=>`<div class="${bg} rounded-2xl p-4"><div class="text-2xl font-bold ${tc}">${v}</div><div class="text-xs text-gray-500 mt-0.5">${l}</div></div>`).join('')}
+  </div>
   <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
     <h1 class="text-xl font-bold text-gray-900">AMS &amp; Support Retainers</h1>
     ${can('admin')?`<button data-act="modal-open" data-modal="add-ams-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition">+ Add Client</button>`:''}

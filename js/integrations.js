@@ -9,7 +9,7 @@ function renderClientList(){
   const ip=scoped.reduce((a,c)=>a+c.integrations.filter(i=>i.status==='In Progress').length,0);
   return`<div class="k-page fade">
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    ${[['Clients',S.clients.length,'text-[#0e7490]','bg-[#0e7490]/10'],['Total Integrations',ti,'text-gray-700','bg-gray-100'],['In Progress',ip,'text-[#0e7490]','bg-cyan-50'],['At Risk',ar,'text-rose-600','bg-rose-50']].map(([l,v,tc,bg])=>`<div class="${bg} rounded-2xl p-4"><div class="text-2xl font-bold ${tc}">${v}</div><div class="text-xs text-gray-500 mt-0.5">${l}</div></div>`).join('')}
+    ${[['Clients',scoped.length,'text-[#0e7490]','bg-[#0e7490]/10'],['Total Integrations',ti,'text-gray-700','bg-gray-100'],['In Progress',ip,'text-[#0e7490]','bg-cyan-50'],['At Risk',ar,'text-rose-600','bg-rose-50']].map(([l,v,tc,bg])=>`<div class="${bg} rounded-2xl p-4"><div class="text-2xl font-bold ${tc}">${v}</div><div class="text-xs text-gray-500 mt-0.5">${l}</div></div>`).join('')}
   </div>
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <h1 class="text-xl font-bold text-gray-900">Integrations</h1>
