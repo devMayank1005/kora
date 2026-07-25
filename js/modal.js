@@ -30,7 +30,7 @@ function renderModal(){
         <div><label class="block text-xs font-medium text-gray-500 mb-1">Full Name *</label><input id="m2" type="text" placeholder="John Doe" autocomplete="off" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       </div>
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Email</label><input id="m5" type="email" placeholder="john@kognoz.in" autocomplete="off" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">Password *</label><input id="m3" type="password" placeholder="••••••••" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">Password *</label><div style="position:relative;"><input id="m3" type="password" placeholder="••••••••" style="padding-right:34px;" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>${pwdToggleBtn('m3')}</div></div>
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Role</label>
         <select id="m4" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${ROLES.map(r=>`<option>${r}</option>`).join('')}</select></div>
     </div>`;
@@ -48,10 +48,10 @@ function renderModal(){
       <div class="border-t border-gray-100 pt-3">
         <div class="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wide">Change Password <span class="font-normal normal-case text-gray-400">— leave blank to keep current</span></div>
         <div class="space-y-2.5">
-          <div><label class="block text-xs font-medium text-gray-500 mb-1">Current Password *</label><input id="pr-curr" type="password" placeholder="Required to save any changes" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+          <div><label class="block text-xs font-medium text-gray-500 mb-1">Current Password *</label><div style="position:relative;"><input id="pr-curr" type="password" placeholder="Required to save any changes" style="padding-right:34px;" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>${pwdToggleBtn('pr-curr')}</div></div>
           <div class="grid grid-cols-2 gap-3">
-            <div><label class="block text-xs font-medium text-gray-500 mb-1">New Password</label><input id="pr-new" type="password" placeholder="Leave blank to keep current" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-            <div><label class="block text-xs font-medium text-gray-500 mb-1">Confirm New Password</label><input id="pr-conf" type="password" placeholder="Repeat new password" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+            <div><label class="block text-xs font-medium text-gray-500 mb-1">New Password</label><div style="position:relative;"><input id="pr-new" type="password" placeholder="Leave blank to keep current" style="padding-right:34px;" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>${pwdToggleBtn('pr-new')}</div></div>
+            <div><label class="block text-xs font-medium text-gray-500 mb-1">Confirm New Password</label><div style="position:relative;"><input id="pr-conf" type="password" placeholder="Repeat new password" style="padding-right:34px;" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>${pwdToggleBtn('pr-conf')}</div></div>
           </div>
         </div>
       </div>
@@ -77,7 +77,7 @@ function renderModal(){
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Username</label><div class="px-3 py-2 bg-gray-50 rounded-xl text-sm text-gray-500 font-mono">${esc(m.username||'')}</div></div>
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Full Name *</label><input id="eu-name" type="text" value="${esc(m.uname||'')}" autocomplete="off" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Email</label><input id="eu-email" type="email" value="${esc(m.email||'')}" autocomplete="off" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">New Password <span class="text-gray-400 font-normal">leave blank to keep current</span></label><input id="eu-pass" type="password" placeholder="••••••••" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">New Password <span class="text-gray-400 font-normal">leave blank to keep current</span></label><div style="position:relative;"><input id="eu-pass" type="password" placeholder="••••••••" style="padding-right:34px;" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>${pwdToggleBtn('eu-pass')}</div></div>
     </div>`;
   } else if(m.type==='bulk-import-users'){
     title='Import Users from CSV';

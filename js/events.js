@@ -38,6 +38,17 @@ document.addEventListener('click',async e=>{
   if(act==='nav-admin'){if(can('admin'))navigate('admin');return;}
   if(act==='toggle-sidebar'){S.sidebarCollapsed=!S.sidebarCollapsed;try{localStorage.setItem('itk_sb_collapsed',S.sidebarCollapsed?'1':'0');}catch(e){}render();return;}
   if(act==='toggle-dark'){S.darkMode=!S.darkMode;document.documentElement.classList.toggle('dark',S.darkMode);try{localStorage.setItem('itk_dark',S.darkMode?'1':'0');}catch(e){}render();return;}
+  if(act==='toggle-pwd'){
+    const input=document.getElementById(el.dataset.target);
+    if(!input)return;
+    const showing=input.type==='text';
+    input.type=showing?'password':'text';
+    const openIcon=el.querySelector('[data-eye-open]'),closedIcon=el.querySelector('[data-eye-closed]');
+    if(openIcon)openIcon.style.display=showing?'':'none';
+    if(closedIcon)closedIcon.style.display=showing?'none':'';
+    el.setAttribute('aria-label',showing?'Show password':'Hide password');
+    return;
+  }
   if(act==='cmdp-open'){S.cmdPaletteOpen=true;S.cmdQuery='';render();setTimeout(()=>document.getElementById('cmdp-input')?.focus(),30);return;}
   if(act==='cmdp-go'){
     const r=_cmdpResults[Number(el.dataset.idx)];if(!r)return;

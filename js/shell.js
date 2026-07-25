@@ -296,7 +296,10 @@ function renderLogin(){
         </div>
         <div>
           <label style="display:block;margin-bottom:6px;">Password</label>
-          <input id="lp" type="password" autocomplete="current-password" placeholder="••••••••"/>
+          <div style="position:relative;">
+            <input id="lp" type="password" autocomplete="current-password" placeholder="••••••••" style="padding-right:34px;"/>
+            ${pwdToggleBtn('lp')}
+          </div>
         </div>
         <div id="lerr" class="hidden" style="font-size:12px;color:var(--red);background:var(--red-hi);padding:8px 12px;border-radius:var(--radius);text-align:center;"></div>
         <button data-act="login" class="k-btn k-btn-primary k-btn-lg" style="width:100%;margin-top:4px;">Sign In</button>

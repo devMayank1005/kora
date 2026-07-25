@@ -115,6 +115,16 @@ function parseUsersCsv(text){
 }
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
 function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+// Eye / eye-slash toggle button for a password field. Pure DOM toggle (see
+// the 'toggle-pwd' handler in events.js) — deliberately does NOT call
+// render(), since these inputs aren't bound to S state; re-rendering would
+// wipe out whatever the person had already typed.
+function pwdToggleBtn(targetId){
+  return`<button type="button" data-act="toggle-pwd" data-target="${targetId}" tabindex="-1" aria-label="Show password" style="position:absolute;right:9px;top:50%;transform:translateY(-50%);background:none;border:none;padding:2px;cursor:pointer;color:var(--mute-2,#9ca3af);display:flex;align-items:center;line-height:0;">
+    <svg data-eye-open width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/></svg>
+    <svg data-eye-closed width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="display:none;"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z"/><circle cx="8" cy="8" r="2"/><line x1="1" y1="1" x2="15" y2="15"/></svg>
+  </button>`;
+}
 function fmtDate(s){if(!s)return'—';try{return new Date(s).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});}catch{return s;}}
 function fmtDateTime(s){if(!s)return'—';try{return new Date(s).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return s;}}
 function can(p){if(!S.user)return false;const r={admin:3,editor:2,viewer:1};return(r[S.user.role]||0)>=(r[p]||0);}
