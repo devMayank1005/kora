@@ -100,7 +100,6 @@ function renderAmsClientDetail(clientId){
   if(!c)return`<div class="p-8 text-gray-400">Client not found</div>`;
   const t=amsTotals(c,S.amsFrom,S.amsTo);
   const sorted=[...t.log].sort((a,b)=>entryDate(b).localeCompare(entryDate(a)));
-  const COLS=['#','Date Raised','Due Date','Raised / Attended By','Module / Meeting','Project','Description','Type','Query Level','Dependencies','Status','RAG','Solution Discussed','Mode of Support','Hours'];
   return`<div class="max-w-full mx-auto px-6 py-7 fade">
   <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
     <div>
@@ -146,41 +145,58 @@ function renderAmsClientDetail(clientId){
     </div>
     <div class="bg-gray-50 rounded-xl p-4 inline-block"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Total Hours (Retainer)</div></div>
   </div>`:''}
-  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden overflow-x-auto">
-    <table class="w-full text-sm min-w-[1600px]">
-      <thead class="border-b border-gray-100 bg-gray-50 sticky-head"><tr>
-        ${COLS.map((h,i)=>`<th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide ${i===0?'w-8 text-center':''}">${h}</th>`).join('')}
-        ${can('edit')?`<th class="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>`:''}
-      </tr></thead>
-      <tbody class="divide-y divide-gray-50">
-        ${sorted.length?sorted.map((e,idx)=>{
-          const isExpanded=S.expandedAmsHistory.has(e.id);
-          const hasHistory=e.edits&&e.edits.length>0;
-          return`<tr class="hover:bg-gray-50/50 transition">
-            <td class="px-3 py-2 text-center text-xs text-gray-400 font-medium">${sorted.length-idx}</td>
-            <td class="px-3 py-2 text-gray-600 whitespace-nowrap text-xs">${fmtDate(entryDate(e))}</td>
-            <td class="px-3 py-2 text-xs ${e.dueDate&&e.dueDate<todayStr()&&(e.entryStatus||'Open')!=='Closed'?'text-rose-600 font-semibold':'text-gray-600'} whitespace-nowrap">${e.dueDate?fmtDate(e.dueDate):'—'}</td>
-            <td class="px-3 py-2 text-gray-700 text-xs">${esc(entryRaisedBy(e))}</td>
-            <td class="px-3 py-2 text-gray-700 text-xs">${esc(e.module||'—')}</td>
-            <td class="px-3 py-2 text-gray-700 text-xs">${esc(e.project||'—')}</td>
-            <td class="px-3 py-2 text-gray-700 text-xs max-w-[180px]">
-              ${esc(e.description||'—')}
-              ${hasHistory?`<div><button data-act="toggle-ams-history" data-eid="${e.id}" class="text-[10px] text-amber-600 hover:text-amber-700 font-medium mt-0.5">✎ edited — ${isExpanded?'hide':'view'}</button></div>`:''}
-              ${isExpanded&&hasHistory?`<div class="mt-1 pl-2 border-l-2 border-amber-200 space-y-1">${[...e.edits].reverse().map(h=>`<div class="text-[10px] text-gray-400">${fmtDate(h.editedAt)}: ${esc(h.description||'—')}</div>`).join('')}</div>`:''}
-            </td>
-            <td class="px-3 py-2 text-xs"><span class="bg-gray-50 border border-gray-200 rounded-full px-2 py-0.5 text-gray-600">${esc(entryType(e))}</span></td>
-            <td class="px-3 py-2 text-xs text-gray-600">${esc(e.queryLevel||'—')}</td>
-            <td class="px-3 py-2 text-xs text-gray-600 max-w-[120px]">${esc(e.dependencies||'—')}</td>
-            <td class="px-3 py-2">${amsStatusBadge(e.entryStatus||'Open')}</td>
-            <td class="px-3 py-2">${e.ragStatus?ragBadge(e.ragStatus):`<span class="text-gray-300 text-xs">—</span>`}</td>
-            <td class="px-3 py-2 text-xs text-gray-600 max-w-[160px]">${esc(e.solution||'—')}</td>
-            <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${esc(e.modeOfSupport||'—')}</td>
-            <td class="px-3 py-2 text-gray-700 font-medium text-xs text-right">${Number(e.hours||0).toFixed(1)}</td>
-            ${can('edit')?`<td class="px-3 py-2"><div class="flex gap-2"><button data-act="edit-ams-entry" data-cid="${esc(c.id)}" data-eid="${e.id}" class="text-xs text-gray-300 hover:text-[#0e7490]">Edit</button>${can('admin')?`<button data-act="delete-ams-entry" data-cid="${esc(c.id)}" data-eid="${e.id}" class="text-xs text-gray-300 hover:text-rose-500">Delete</button>`:''}</div></td>`:''}
-          </tr>`;
-        }).join(''):`<tr><td colspan="${COLS.length+(can('edit')?1:0)}" class="text-center py-12 text-gray-400 text-sm">${emptyIcon('hours')}No entries yet. Add one to get started.</td></tr>`}
-      </tbody>
-    </table>
-  </div>
+  ${(()=>{
+    if(!sorted.length)return`<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('hours')}No entries yet. Add one to get started.</div>`;
+    const selId=S.selectedAmsEntryId&&sorted.some(e=>e.id===S.selectedAmsEntryId)?S.selectedAmsEntryId:sorted[0].id;
+    const sel=sorted.find(e=>e.id===selId);
+    const isOverdue=e=>e.dueDate&&e.dueDate<todayStr()&&(e.entryStatus||'Open')!=='Closed';
+    const isExpanded=S.expandedAmsHistory.has(sel.id);
+    const hasHistory=sel.edits&&sel.edits.length>0;
+    const detailRow=(label,value,extraCls)=>`<div><span class="text-xs text-gray-400">${label}</span><div class="text-sm text-gray-700 font-medium ${extraCls||''}">${value}</div></div>`;
+    return`<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-5" style="min-height:420px;">
+    <div class="col-span-2 border-r border-gray-100 overflow-y-auto" style="max-height:640px;">
+      <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wide sticky top-0">${sorted.length} entr${sorted.length!==1?'ies':'y'}</div>
+      ${sorted.map(e=>{
+        const active=e.id===selId;
+        return`<div data-act="select-ams-entry" data-eid="${e.id}" class="px-3 py-2.5 border-b border-gray-50 cursor-pointer transition ${active?'bg-[#0e7490]/5 border-l-2 border-l-[#0e7490]':'border-l-2 border-l-transparent hover:bg-gray-50'}">
+          <div class="flex justify-between items-baseline gap-2">
+            <span class="text-xs font-medium text-gray-900 truncate">${esc(e.module||e.project||'Untitled')}</span>
+            <span class="text-xs shrink-0 ${isOverdue(e)?'text-rose-600 font-semibold':'text-gray-400'}">${fmtDate(entryDate(e))}</span>
+          </div>
+          <div class="text-xs text-gray-500 truncate mt-0.5">${esc(e.description||'—')}</div>
+          <div class="flex gap-1.5 mt-1.5">${amsStatusBadge(e.entryStatus||'Open')}${e.ragStatus?`<span class="scale-90 origin-left">${ragBadge(e.ragStatus)}</span>`:''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="col-span-3 p-5 overflow-y-auto" style="max-height:640px;">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-600">${esc(entryType(sel))}</span>
+          ${amsStatusBadge(sel.entryStatus||'Open')}
+          ${sel.ragStatus?ragBadge(sel.ragStatus):''}
+        </div>
+        ${can('edit')?`<div class="flex gap-2 shrink-0">
+          <button data-act="edit-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Edit</button>
+          ${can('admin')?`<button data-act="delete-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-rose-500 border border-rose-200 rounded-lg px-3 py-1.5 hover:bg-rose-50 transition">Delete</button>`:''}
+        </div>`:''}
+      </div>
+      <div class="text-sm text-gray-800 mb-4 leading-relaxed">${esc(sel.description||'—')}</div>
+      ${hasHistory?`<div class="mb-4"><button data-act="toggle-ams-history" data-eid="${sel.id}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">✎ edited — ${isExpanded?'hide':'view'} history</button>
+        ${isExpanded?`<div class="mt-1.5 pl-2.5 border-l-2 border-amber-200 space-y-1">${[...sel.edits].reverse().map(h=>`<div class="text-xs text-gray-400">${fmtDate(h.editedAt)}: ${esc(h.description||'—')}</div>`).join('')}</div>`:''}
+      </div>`:''}
+      <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs pt-4 border-t border-gray-100">
+        ${detailRow('Date Raised',fmtDate(entryDate(sel)))}
+        ${detailRow('Due Date',sel.dueDate?fmtDate(sel.dueDate):'—',isOverdue(sel)?'text-rose-600':'')}
+        ${detailRow('Raised / Attended By',esc(entryRaisedBy(sel)))}
+        ${detailRow('Project',esc(sel.project||'—'))}
+        ${detailRow('Query Level',esc(sel.queryLevel||'—'))}
+        ${detailRow('Mode of Support',esc(sel.modeOfSupport||'—'))}
+        ${detailRow('Dependencies',esc(sel.dependencies||'—'))}
+        ${detailRow('Hours',`<span class="text-gray-900 font-bold">${Number(sel.hours||0).toFixed(1)}</span>`)}
+        <div class="col-span-2">${detailRow('Solution Discussed',esc(sel.solution||'—'))}</div>
+      </div>
+    </div>
+  </div>`;
+  })()}
 </div>`;
 }

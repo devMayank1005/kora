@@ -217,6 +217,7 @@ document.addEventListener('click',async e=>{
     if(S.expandedAmsHistory.has(eid))S.expandedAmsHistory.delete(eid);else S.expandedAmsHistory.add(eid);
     render();return;
   }
+  if(act==='select-ams-entry'){S.selectedAmsEntryId=el.dataset.eid;render();return;}
   // ── Milestone handlers ──
   if(act==='add-milestone-btn'){
     if(!can('edit'))return;
