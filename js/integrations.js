@@ -25,7 +25,7 @@ function renderClientList(){
       const total=c.integrations.length;
       const completed=c.integrations.filter(i=>i.status==='Completed').length;
       const pct=total?completed/total*100:0;
-      return`<div data-act="open-client" data-id="${c.id}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
+      return`<div data-act="open-client" data-id="${esc(c.id)}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
         <div class="flex items-center gap-3.5">
           ${ringSvg(pct,healthVar(c))}
           <div class="flex-1 min-w-0">
@@ -68,25 +68,25 @@ function renderClientDetail(clientId){
   <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
     <div><h1 class="text-xl font-bold text-gray-900">${esc(c.name)}</h1>${c.description?`<p class="text-sm text-gray-400 mt-0.5">${esc(c.description)}</p>`:''}</div>
     <div class="flex items-center gap-2">
-    ${can('admin')?`<button data-act="toggle-bulk-integ" data-cid="${c.id}" class="whitespace-nowrap text-sm font-medium px-4 py-2 rounded-xl transition ${S.bulkIntegMode&&S.bulkIntegCid===c.id?'bg-rose-50 border border-rose-200 text-rose-600':'border border-gray-200 text-gray-600 hover:border-gray-300'}">${S.bulkIntegMode&&S.bulkIntegCid===c.id?'✕ Cancel':'☑ Select'}</button>`:''}
+    ${can('admin')?`<button data-act="toggle-bulk-integ" data-cid="${esc(c.id)}" class="whitespace-nowrap text-sm font-medium px-4 py-2 rounded-xl transition ${S.bulkIntegMode&&S.bulkIntegCid===c.id?'bg-rose-50 border border-rose-200 text-rose-600':'border border-gray-200 text-gray-600 hover:border-gray-300'}">${S.bulkIntegMode&&S.bulkIntegCid===c.id?'✕ Cancel':'☑ Select'}</button>`:''}
     <div class="relative group">
       <button class="flex items-center gap-1.5 btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Export ▾
       </button>
       <div class="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl w-52 py-1 hidden group-hover:block z-10">
-        <button data-act="exp-pptx" data-id="${c.id}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📊 PowerPoint</button>
-        <button data-act="exp-pdf"  data-id="${c.id}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📄 PDF</button>
-        <button data-act="exp-excel" data-etype="integrations" data-cid="${c.id}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📋 Excel (Integrations)</button>
-        <button data-act="exp-excel" data-etype="milestones" data-cid="${c.id}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">🎯 Excel (Milestones)</button>
+        <button data-act="exp-pptx" data-id="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📊 PowerPoint</button>
+        <button data-act="exp-pdf"  data-id="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📄 PDF</button>
+        <button data-act="exp-excel" data-etype="integrations" data-cid="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📋 Excel (Integrations)</button>
+        <button data-act="exp-excel" data-etype="milestones" data-cid="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">🎯 Excel (Milestones)</button>
         <div class="border-t border-gray-100 my-1"></div>
-        <button data-act="open-import-integ" data-cid="${c.id}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">⬆ Import Integrations (CSV)</button>
+        <button data-act="open-import-integ" data-cid="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">⬆ Import Integrations (CSV)</button>
       </div>
     </div>
     </div>
   </div>
   <div class="flex gap-2 overflow-x-auto pb-1 mb-5 items-center">
     ${['all',...STATUSES].map(st=>`<button data-act="filter" data-filter="${st}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full transition ${S.filter===st?'bg-[#0e7490] text-white':'bg-white border border-gray-200 text-gray-600 hover:border-[#0e7490]/40'}">${st==='all'?`All (${c.integrations.length})`:esc(st)+` (${c.integrations.filter(i=>i.status===st).length})`}</button>`).join('')}
-    <button data-act="modal-open" data-modal="add-integ" data-cid="${c.id}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 ml-auto">+ Add Integration</button>
+    <button data-act="modal-open" data-modal="add-integ" data-cid="${esc(c.id)}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 ml-auto">+ Add Integration</button>
   </div>
   ${S.bulkIntegMode&&S.bulkIntegCid===c.id?`<div class="flex items-center gap-3 mb-3 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
     <span class="text-sm text-rose-700 font-medium">Select integrations to delete</span>
@@ -94,19 +94,19 @@ function renderClientDetail(clientId){
   <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden${S.bulkIntegMode&&S.bulkIntegCid===c.id?' ring-2 ring-rose-300':''}">
     <table class="w-full text-sm">
       <thead class="border-b border-gray-100 bg-gray-50 sticky-head">
-        <tr>${S.bulkIntegMode&&S.bulkIntegCid===c.id?`<th class="px-4 py-3 w-10"><input type="checkbox" data-act="toggle-bulk-integ-all" data-cid="${c.id}" ${sorted.length&&sorted.every(i=>S.bulkIntegSelected.has(i.id))?'checked':''} class="rounded"/></th>`:''}${cols.map(([k,l])=>`<th data-act="sort" data-key="${k}" data-sort class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer transition select-none">${l} ${sortArrow(k)}</th>`).join('')}</tr>
+        <tr>${S.bulkIntegMode&&S.bulkIntegCid===c.id?`<th class="px-4 py-3 w-10"><input type="checkbox" data-act="toggle-bulk-integ-all" data-cid="${esc(c.id)}" ${sorted.length&&sorted.every(i=>S.bulkIntegSelected.has(i.id))?'checked':''} class="rounded"/></th>`:''}${cols.map(([k,l])=>`<th data-act="sort" data-key="${esc(k)}" data-sort class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer transition select-none">${l} ${sortArrow(k)}</th>`).join('')}</tr>
       </thead>
       <tbody class="divide-y divide-gray-50">
         ${sorted.length?sorted.map(i=>{
           const lu=lastUpdateDate(i);
           const bulkOn=S.bulkIntegMode&&S.bulkIntegCid===c.id;
-          return`<tr class="hover:bg-gray-50/60 transition${bulkOn?'':' cursor-pointer'}" ${bulkOn?'':`data-act="open-integ" data-cid="${c.id}" data-iid="${i.id}"`}>
-          ${bulkOn?`<td class="px-4 py-3"><input type="checkbox" data-act="toggle-bulk-integ-row" data-cid="${c.id}" data-iid="${i.id}" ${S.bulkIntegSelected.has(i.id)?'checked':''} class="rounded"/></td>`:''}
-          <td class="px-4 py-3"${bulkOn?` data-act="open-integ" data-cid="${c.id}" data-iid="${i.id}"`:''}><div class="font-medium text-gray-900" title="${esc(i.name)}">${esc(i.name)}</div>${i.description?`<div class="text-xs text-gray-400 truncate max-w-xs" title="${esc(i.description)}">${esc(i.description)}</div>`:''}</td>
-          <td class="px-4 py-3" onclick="event.stopPropagation()">${can('editor')?`<select data-act="inline-status" data-cid="${c.id}" data-iid="${i.id}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s=>`<option value="${esc(s)}"${s===i.status?' selected':''}>${esc(s)}</option>`).join('')}</select>`:sbadge(i.status)}</td>
-          <td class="px-4 py-3 text-gray-600" onclick="event.stopPropagation()">${can('editor')?`<select data-act="inline-assignee" data-cid="${c.id}" data-iid="${i.id}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[140px]">${assigneeOptionsOnly(i.assignee)}</select>`:esc(i.assignee||'—')}</td>
-          <td class="px-4 py-3"${bulkOn?'':` data-act="open-integ" data-cid="${c.id}" data-iid="${i.id}"`}><div class="flex flex-col gap-1"><span class="text-gray-600">${fmtDate(i.dueDate)}</span>${overdueBadge(i)}</div></td>
-          <td class="px-4 py-3 text-gray-500"${bulkOn?'':` data-act="open-integ" data-cid="${c.id}" data-iid="${i.id}"`}>${lu?fmtDate(lu):'<span class="text-amber-600 text-xs font-medium">No updates</span>'}</td>
+          return`<tr class="hover:bg-gray-50/60 transition${bulkOn?'':' cursor-pointer'}" ${bulkOn?'':`data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`}>
+          ${bulkOn?`<td class="px-4 py-3"><input type="checkbox" data-act="toggle-bulk-integ-row" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" ${S.bulkIntegSelected.has(i.id)?'checked':''} class="rounded"/></td>`:''}
+          <td class="px-4 py-3"${bulkOn?` data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`:''}><div class="font-medium text-gray-900" title="${esc(i.name)}">${esc(i.name)}</div>${i.description?`<div class="text-xs text-gray-400 truncate max-w-xs" title="${esc(i.description)}">${esc(i.description)}</div>`:''}</td>
+          <td class="px-4 py-3" onclick="event.stopPropagation()">${can('editor')?`<select data-act="inline-status" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s=>`<option value="${esc(s)}"${s===i.status?' selected':''}>${esc(s)}</option>`).join('')}</select>`:sbadge(i.status)}</td>
+          <td class="px-4 py-3 text-gray-600" onclick="event.stopPropagation()">${can('editor')?`<select data-act="inline-assignee" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[140px]">${assigneeOptionsOnly(i.assignee)}</select>`:esc(i.assignee||'—')}</td>
+          <td class="px-4 py-3"${bulkOn?'':` data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`}><div class="flex flex-col gap-1"><span class="text-gray-600">${fmtDate(i.dueDate)}</span>${overdueBadge(i)}</div></td>
+          <td class="px-4 py-3 text-gray-500"${bulkOn?'':` data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`}>${lu?fmtDate(lu):'<span class="text-amber-600 text-xs font-medium">No updates</span>'}</td>
         </tr>`;}).join(''):`<tr><td colspan="6" class="text-center py-12 text-gray-400 text-sm">No integrations match this filter</td></tr>`}
       </tbody>
     </table>
@@ -120,8 +120,8 @@ function renderClientDetail(clientId){
       </div>
     </div>
     <div class="flex items-center gap-3">
-      <button data-act="toggle-bulk-integ" data-cid="${c.id}" class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-      <button data-act="bulk-delete-integ" data-cid="${c.id}" ${S.bulkIntegSelected.size===0?'disabled class="bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-2 rounded-xl cursor-not-allowed"':'class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition"'}>
+      <button data-act="toggle-bulk-integ" data-cid="${esc(c.id)}" class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+      <button data-act="bulk-delete-integ" data-cid="${esc(c.id)}" ${S.bulkIntegSelected.size===0?'disabled class="bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-2 rounded-xl cursor-not-allowed"':'class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition"'}>
         🗑 Delete ${S.bulkIntegSelected.size||''} Selected
       </button>
     </div>
@@ -162,9 +162,9 @@ function renderIntegDetail(clientId,integId){
           ${can('edit')?`<textarea id="f-next" rows="2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(i.nextAction||'')}</textarea>`:
           `<p class="text-sm text-gray-700">${esc(i.nextAction||'—')}</p>`}
         </div>
-        ${can('edit')?`<button data-act="save-integ" data-cid="${c.id}" data-iid="${i.id}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition">Save Details</button>`:''}
-        ${can('edit')&&i.status!=='Completed'?`<button data-act="mark-complete" data-cid="${c.id}" data-iid="${i.id}" class="w-full text-green-700 bg-green-50 hover:bg-green-100 font-medium rounded-xl py-2 text-xs transition">✓ Mark as Complete</button>`:''}
-        ${can('admin')?`<button data-act="delete-integ" data-cid="${c.id}" data-iid="${i.id}" class="w-full text-rose-400 hover:text-rose-600 text-xs py-1 transition">Delete Integration</button>`:''}
+        ${can('edit')?`<button data-act="save-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition">Save Details</button>`:''}
+        ${can('edit')&&i.status!=='Completed'?`<button data-act="mark-complete" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-green-700 bg-green-50 hover:bg-green-100 font-medium rounded-xl py-2 text-xs transition">✓ Mark as Complete</button>`:''}
+        ${can('admin')?`<button data-act="delete-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-rose-400 hover:text-rose-600 text-xs py-1 transition">Delete Integration</button>`:''}
       </div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 p-6">
@@ -183,7 +183,7 @@ function renderIntegDetail(clientId,integId){
           <div class="flex items-center gap-3 mt-1.5 pl-1">
             <span class="text-[11px] text-gray-400">Posts immediately — no need to Save Details</span>
             <div class="flex-1"></div>
-            <button data-act="add-timeline" data-cid="${c.id}" data-iid="${i.id}" title="Post update" class="w-8 h-8 rounded-full bg-[#0e7490] hover:bg-[#0d3d4f] flex items-center justify-center transition shrink-0">
+            <button data-act="add-timeline" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" title="Post update" class="w-8 h-8 rounded-full bg-[#0e7490] hover:bg-[#0d3d4f] flex items-center justify-center transition shrink-0">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>
             </button>
           </div>
@@ -203,7 +203,7 @@ function renderIntegDetail(clientId,integId){
                 <textarea id="edit-tl-${t.id}" rows="3" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(t.update)}</textarea>
                 <div class="flex gap-2 mt-2">
                   <button data-act="cancel-edit-timeline" class="flex-1 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50 transition">Cancel</button>
-                  <button data-act="save-edit-timeline" data-cid="${c.id}" data-iid="${i.id}" data-tid="${t.id}" class="flex-1 text-xs font-semibold text-white bg-[#0e7490] rounded-lg py-1.5 hover:bg-[#0d3d4f] transition">Save Edit</button>
+                  <button data-act="save-edit-timeline" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" class="flex-1 text-xs font-semibold text-white bg-[#0e7490] rounded-lg py-1.5 hover:bg-[#0d3d4f] transition">Save Edit</button>
                 </div>
               </div>
             </div>`;
@@ -214,12 +214,12 @@ function renderIntegDetail(clientId,integId){
             <div class="flex items-baseline gap-2 flex-wrap">
               <span class="text-sm font-medium text-gray-900">${esc(t.addedBy||'Unknown')}</span>
               <span class="text-xs text-gray-400">${esc(t.date)}${t.addedAt?` · ${fmtDate(t.addedAt)}`:''}</span>
-              ${hasHistory?`<button data-act="toggle-history" data-tid="${t.id}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">edited${t.edits.length>1?` (${t.edits.length}×)`:''} — ${isExpanded?'hide':'view'}</button>`:''}
+              ${hasHistory?`<button data-act="toggle-history" data-tid="${esc(t.id)}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">edited${t.edits.length>1?` (${t.edits.length}×)`:''} — ${isExpanded?'hide':'view'}</button>`:''}
             </div>
             <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5 mt-1 text-sm text-gray-700 leading-relaxed">${esc(t.update)}</div>
             <div class="flex items-center gap-3 mt-1.5 pl-1">
-              ${can('edit')?`<button data-act="edit-timeline" data-tid="${t.id}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>`:''}
-              ${can('admin')?`<button data-act="delete-timeline-entry" data-cid="${c.id}" data-iid="${i.id}" data-tid="${t.id}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>`:''}
+              ${can('edit')?`<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>`:''}
+              ${can('admin')?`<button data-act="delete-timeline-entry" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>`:''}
               <button data-act="copy-update" data-text="${esc(t.update)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Copy</button>
             </div>
             ${isExpanded&&hasHistory?`<div class="mt-2 pl-3 border-l-2 border-amber-200 space-y-2">
@@ -234,7 +234,7 @@ function renderIntegDetail(clientId,integId){
   <div class="mt-6 bg-white rounded-2xl border border-gray-100 p-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-gray-900 text-sm">Milestones</h3>
-      ${can('edit')?`<button data-act="add-milestone-btn" data-cid="${c.id}" data-iid="${i.id}" class="text-xs text-[#0e7490] font-semibold border border-[#0e7490]/30 bg-[#0e7490]/5 px-3 py-1.5 rounded-xl hover:bg-[#0e7490]/10 transition">+ Add Milestone</button>`:''}
+      ${can('edit')?`<button data-act="add-milestone-btn" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs text-[#0e7490] font-semibold border border-[#0e7490]/30 bg-[#0e7490]/5 px-3 py-1.5 rounded-xl hover:bg-[#0e7490]/10 transition">+ Add Milestone</button>`:''}
     </div>
     ${(i.milestones||[]).length?`<div class="space-y-2">
       ${(i.milestones||[]).map(ms=>{
@@ -247,8 +247,8 @@ function renderIntegDetail(clientId,integId){
           </div>
           <span class="text-xs font-semibold bg-${msColor}-50 text-${msColor}-700 border border-${msColor}-200 px-2 py-0.5 rounded-full shrink-0">${ms.status}</span>
           ${can('edit')?`<div class="flex gap-2 shrink-0">
-            <button data-act="edit-milestone-btn" data-cid="${c.id}" data-iid="${i.id}" data-mid="${ms.id}" class="text-xs text-gray-300 hover:text-[#0e7490]">Edit</button>
-            ${can('admin')?`<button data-act="delete-milestone" data-cid="${c.id}" data-iid="${i.id}" data-mid="${ms.id}" class="text-xs text-gray-300 hover:text-rose-500">Delete</button>`:''}
+            <button data-act="edit-milestone-btn" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-mid="${esc(ms.id)}" class="text-xs text-gray-300 hover:text-[#0e7490]">Edit</button>
+            ${can('admin')?`<button data-act="delete-milestone" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-mid="${esc(ms.id)}" class="text-xs text-gray-300 hover:text-rose-500">Delete</button>`:''}
           </div>`:''}
         </div>`;
       }).join('')}

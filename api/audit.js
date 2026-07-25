@@ -8,6 +8,7 @@
 
 const { validateToken } = require('./_auth');
 const { applyCors } = require('./_cors');
+const { serverError } = require('./_errors');
 
 const EXPORT_CAP = 5000;
 const DEFAULT_LIMIT = 50;
@@ -86,6 +87,6 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ rows: out, total });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, err, 'audit.js');
   }
 };

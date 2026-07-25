@@ -180,7 +180,7 @@ function renderDashboard(){
       <div class="flex" style="border-bottom:1px solid var(--dborder)">
         <div class="hd2 w-24 px-2 py-1.5">Domain</div><div class="hd2 flex-1 px-2 py-1.5">Item</div><div class="hd2 w-28 px-2 py-1.5">Client</div><div class="hd2 w-40 px-2 py-1.5">Age / Detail</div><div class="hd2 w-24 px-2 py-1.5">Owner</div>
       </div>
-      ${criticalItems.length?criticalItems.map(it=>`<div class="row2" data-act="${it.act}" data-cid="${it.cid}" data-id="${it.cid}" ${it.iid?`data-iid="${it.iid}"`:''}>
+      ${criticalItems.length?criticalItems.map(it=>`<div class="row2" data-act="${it.act}" data-cid="${esc(it.cid)}" data-id="${esc(it.cid)}" ${it.iid?`data-iid="${esc(it.iid)}"`:''}>
         <div class="w-24 px-2"><span class="chip2" style="background:${it.severity===0?'rgba(220,38,38,.08)':'rgba(217,119,6,.1)'};color:${it.severity===0?'var(--dd)':'var(--damber)'}">${esc(it.domain)}</span></div>
         <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)" title="${esc(it.title)}">${esc(it.title)}</div>
         <div class="w-28 px-2 truncate" style="color:var(--dmute)">${esc(it.client)}</div>
@@ -197,7 +197,7 @@ function renderDashboard(){
         <div class="flex" style="border-bottom:1px solid var(--dborder)">
           <div class="hd2 flex-1 px-2 py-1.5">Client</div><div class="hd2 w-10 px-2 py-1.5 text-center">Int</div><div class="hd2 w-10 px-2 py-1.5 text-center">Impl</div><div class="hd2 w-10 px-2 py-1.5 text-center">AMS</div><div class="hd2 w-16 px-2 py-1.5 text-right">Trend</div>
         </div>
-        ${healthRows.length?healthRows.map(r=>`<div class="row2" data-act="open-client" data-id="${r.id}">
+        ${healthRows.length?healthRows.map(r=>`<div class="row2" data-act="open-client" data-id="${esc(r.id)}">
           <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)">${esc(r.name)}</div>
           <div class="w-10 px-2 text-center">${r.integR?`<span class="dot2" style="background:${RAG_HEX[r.integR]}"></span>`:''}</div>
           <div class="w-10 px-2 text-center">${r.implR?`<span class="dot2" style="background:${RAG_HEX[r.implR]}"></span>`:''}</div>
@@ -285,12 +285,12 @@ function renderDashboard(){
     <div class="flex flex-wrap items-center gap-2 mb-2">
       <input type="text" id="dash-assignee-search-inp" placeholder="Search person or item…" value="${esc(S.dashAssigneeSearch)}" data-act="dash-assignee-search" class="text-xs rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px]" style="border:1px solid var(--dborder)"/>
       <div class="flex gap-1.5">
-        ${[['all','All'],['integ','Integrations'],['phase','Phases'],['ams','AMS']].map(([k,l])=>`<button data-act="dash-assignee-filter" data-key="${k}" class="chip2" style="${S.dashAssigneeFilter===k?'background:var(--dink);color:#fff;':'background:var(--dbg);color:var(--dmute);border:1px solid var(--dborder);'}">${l}</button>`).join('')}
+        ${[['all','All'],['integ','Integrations'],['phase','Phases'],['ams','AMS']].map(([k,l])=>`<button data-act="dash-assignee-filter" data-key="${esc(k)}" class="chip2" style="${S.dashAssigneeFilter===k?'background:var(--dink);color:#fff;':'background:var(--dbg);color:var(--dmute);border:1px solid var(--dborder);'}">${l}</button>`).join('')}
       </div>
     </div>
     <div class="scrollbox">
       <div class="flex" style="border-bottom:1px solid var(--dborder)">
-        ${[['name','Person','flex-1'],['integ','Integrations','w-24 text-right'],['phase','Phases','w-20 text-right'],['ams','AMS','w-20 text-right'],['total','Total','w-16 text-right']].map(([k,l,w])=>`<div data-act="sort-dash-assignee" data-key="${k}" class="hd2 ${w} px-2 py-1.5 truncate">${l} ${sortArrowFor(S.dashAssigneeSort,k)}</div>`).join('')}
+        ${[['name','Person','flex-1'],['integ','Integrations','w-24 text-right'],['phase','Phases','w-20 text-right'],['ams','AMS','w-20 text-right'],['total','Total','w-16 text-right']].map(([k,l,w])=>`<div data-act="sort-dash-assignee" data-key="${esc(k)}" class="hd2 ${w} px-2 py-1.5 truncate">${l} ${sortArrowFor(S.dashAssigneeSort,k)}</div>`).join('')}
         <div class="w-8"></div>
       </div>
       ${workloadRows.length?workloadRows.map(w=>{

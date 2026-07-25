@@ -14,9 +14,15 @@ function verifySignature(token, secret) {
   const payloadB64 = token.slice(0, dot);
   const sig = token.slice(dot + 1);
   const expected = crypto.createHmac('sha256', secret).update(payloadB64).digest('hex');
+  // M-4 fix: a signature that isn't exactly 64 hex chars must be rejected
+  // BEFORE Buffer.from(sig,'hex') — a non-hex string silently produces a
+  // shorter buffer, and timingSafeEqual throws a RangeError on mismatched
+  // lengths. That threw uncaught in every caller, giving an unauthenticated
+  // attacker a free 500 on every endpoint just by sending a garbage token.
+  if (!/^[0-9a-f]{64}$/i.test(sig)) return null;
   const a = Buffer.from(expected, 'hex');
-  const b = Buffer.from(sig.length === expected.length ? sig : expected, 'hex');
-  if (!crypto.timingSafeEqual(a, b) || sig.length !== expected.length) return null;
+  const b = Buffer.from(sig, 'hex');
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
   try {
     return JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
   } catch {
@@ -35,7 +41,14 @@ function signToken(payload, secret) {
 // A Supabase lookup is required for the token_version check, so this is async and needs
 // the Supabase connection details passed in.
 async function validateToken(token, secret, supabaseUrl, supabaseKey) {
-  const payload = verifySignature(token, secret);
+  let payload;
+  try {
+    payload = verifySignature(token, secret);
+  } catch (err) {
+    // Backstop only — verifySignature should never throw after the M-4 fix,
+    // but a caller passing garbage here must still fail closed, not crash.
+    return { valid: false, reason: 'bad_signature' };
+  }
   if (!payload) return { valid: false, reason: 'bad_signature' };
 
   if (typeof payload.exp === 'number' && Date.now() > payload.exp) {

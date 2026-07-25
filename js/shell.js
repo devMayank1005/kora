@@ -131,7 +131,7 @@ function renderBreadcrumb(){
     const isLast=idx===crumbs.length-1;
     const sep=idx>0?'<span style="margin:0 6px;color:var(--mute-2);">/</span>':'';
     if(isLast||!cr.act)return`${sep}<span style="color:var(--ink-3);font-weight:500;">${esc(cr.label)}</span>`;
-    return`${sep}<a data-act="${cr.act}"${cr.id?` data-id="${cr.id}"`:''} style="cursor:pointer;">${esc(cr.label)}</a>`;
+    return`${sep}<a data-act="${cr.act}"${cr.id?` data-id="${esc(cr.id)}"`:''} style="cursor:pointer;">${esc(cr.label)}</a>`;
   }).join('')}</div>`;
 }
 function render(){

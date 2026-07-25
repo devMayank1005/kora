@@ -24,7 +24,7 @@ function renderImplClientList(){
       const rag=implAutoRag(c);
       const ringColor=rag==='Red'?'var(--red)':rag==='Amber'?'var(--amber)':'var(--green)';
       const atRiskPhases=mods.reduce((a,m)=>a+(m.phases||[]).filter(ph=>ph.status==='At Risk').length,0);
-      return`<div data-act="open-impl-client" data-id="${c.id}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
+      return`<div data-act="open-impl-client" data-id="${esc(c.id)}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
         <div class="flex items-center gap-3.5">
           ${ringSvg(pr.pct,ringColor)}
           <div class="flex-1 min-w-0">
@@ -62,12 +62,12 @@ function renderImplClientDetail(clientId){
     </div>
     <div class="flex gap-2 flex-wrap">
       ${bulk?`<span class="text-xs text-[#0e7490] bg-[#0e7490]/10 px-3 py-2 rounded-xl font-medium">Select phases to mark complete</span>
-        <button data-act="toggle-bulk-impl" data-cid="${c.id}" class="text-xs text-gray-500 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition">✕ Cancel</button>`
-      :`${can('admin')?`<button data-act="toggle-bulk-impl" data-cid="${c.id}" class="bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-amber-100 transition">✓ Bulk Mark Complete</button>`:''}
-        <button data-act="modal-open" data-modal="add-impl-module" data-cid="${c.id}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">+ Add Module</button>
-        <button data-act="exp-impl-pdf" data-cid="${c.id}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📄 Export PDF</button>
-      <button data-act="exp-excel" data-etype="impl" data-cid="${c.id}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
-        ${can('admin')?`<button data-act="delete-impl-client" data-id="${c.id}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Remove Client</button>`:''}`}
+        <button data-act="toggle-bulk-impl" data-cid="${esc(c.id)}" class="text-xs text-gray-500 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition">✕ Cancel</button>`
+      :`${can('admin')?`<button data-act="toggle-bulk-impl" data-cid="${esc(c.id)}" class="bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-amber-100 transition">✓ Bulk Mark Complete</button>`:''}
+        <button data-act="modal-open" data-modal="add-impl-module" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">+ Add Module</button>
+        <button data-act="exp-impl-pdf" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📄 Export PDF</button>
+      <button data-act="exp-excel" data-etype="impl" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
+        ${can('admin')?`<button data-act="delete-impl-client" data-id="${esc(c.id)}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Remove Client</button>`:''}`}
     </div>
   </div>
   ${pr.total>0?`<div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-5"><div class="h-full bg-[#0e7490] rounded-full bar-fill" style="width:${pr.pct}%"></div></div>`:''}
@@ -82,7 +82,7 @@ function renderImplClientDetail(clientId){
           <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white">
             <div class="flex items-center justify-between gap-2">
               <span>${esc(m.name)}</span>
-              ${!bulk&&can('admin')?`<button data-act="delete-impl-module" data-cid="${c.id}" data-mid="${m.id}" title="Delete module" class="text-gray-200 hover:text-rose-500 transition text-sm leading-none shrink-0">✕</button>`:''}
+              ${!bulk&&can('admin')?`<button data-act="delete-impl-module" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" title="Delete module" class="text-gray-200 hover:text-rose-500 transition text-sm leading-none shrink-0">✕</button>`:''}
             </div>
           </td>
           ${PHASES.map(phName=>{
@@ -97,7 +97,7 @@ function renderImplClientDetail(clientId){
                 </td>`;
               }
               return`<td class="px-2 py-2 text-center">
-                <button data-act="toggle-bulk-phase" data-cid="${c.id}" data-mid="${m.id}" data-phase="${esc(phName)}" class="w-full relative group">
+                <button data-act="toggle-bulk-phase" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" data-phase="${esc(phName)}" class="w-full relative group">
                   <div class="absolute inset-0.5 rounded-lg pointer-events-none ${isSel?'ring-2 ring-[#0e7490] ring-offset-1 bg-[#0e7490]/5':'group-hover:ring-1 group-hover:ring-amber-300 group-hover:bg-amber-50'}"></div>
                   ${sbadge(ph.status)}
                   <div class="text-[10px] font-semibold mt-0.5 ${isSel?'text-[#0e7490]':'text-gray-300'}">${isSel?'✓ Selected':'tap to select'}</div>
@@ -105,7 +105,7 @@ function renderImplClientDetail(clientId){
               </td>`;
             }
             return`<td class="px-2 py-2 text-center">
-              <button data-act="open-impl-phase" data-cid="${c.id}" data-mid="${m.id}" data-phase="${esc(phName)}" class="w-full">
+              <button data-act="open-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" data-phase="${esc(phName)}" class="w-full">
                 ${sbadge(ph.status)}
                 ${ph.updates?.length?`<div class="text-[10px] text-gray-400 mt-0.5">${ph.updates.length} update${ph.updates.length!==1?'s':''}</div>`:''}
                 ${ph.assignee?`<div class="text-[10px] text-gray-400 truncate mt-0.5" title="${esc(ph.assignee)}">${esc(ph.assignee)}</div>`:''}
@@ -125,8 +125,8 @@ function renderImplClientDetail(clientId){
       </div>
     </div>
     <div class="flex items-center gap-3">
-      <button data-act="toggle-bulk-impl" data-cid="${c.id}" class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
-      <button data-act="bulk-mark-complete" data-cid="${c.id}" ${selCount===0?'disabled class="bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-2 rounded-xl cursor-not-allowed"':'class="btn-grad text-white text-sm font-semibold px-5 py-2 rounded-xl transition"'}>
+      <button data-act="toggle-bulk-impl" data-cid="${esc(c.id)}" class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+      <button data-act="bulk-mark-complete" data-cid="${esc(c.id)}" ${selCount===0?'disabled class="bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-2 rounded-xl cursor-not-allowed"':'class="btn-grad text-white text-sm font-semibold px-5 py-2 rounded-xl transition"'}>
         ✓ Mark ${selCount||''} Phase${selCount===1?'':'s'} Complete
       </button>
     </div>
@@ -172,7 +172,7 @@ function renderImplPhaseDetail(clientId,moduleId,phaseName){
           ${can('edit')?`<textarea id="ip-next" rows="2" placeholder="What is the next planned step?" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(ph.nextAction||'')}</textarea>`:
           `<p class="text-sm text-gray-700">${esc(ph.nextAction||'—')}</p>`}
         </div>
-        ${can('edit')?`<button data-act="save-impl-phase" data-cid="${c.id}" data-mid="${mod.id}" data-phase="${esc(phaseName)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition">Save Details</button>`:''}
+        ${can('edit')?`<button data-act="save-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition">Save Details</button>`:''}
       </div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 p-6">
@@ -205,7 +205,7 @@ function renderImplPhaseDetail(clientId,moduleId,phaseName){
           <div class="flex items-center gap-3 mt-2 pl-1">
             <span class="text-[11px] text-gray-400">PDF, Excel or image, max 3MB · posts immediately</span>
             <div class="flex-1"></div>
-            <button data-act="add-impl-update" data-cid="${c.id}" data-mid="${mod.id}" data-phase="${esc(phaseName)}" title="Post update" class="w-8 h-8 rounded-full bg-[#0e7490] hover:bg-[#0d3d4f] flex items-center justify-center transition shrink-0">
+            <button data-act="add-impl-update" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" title="Post update" class="w-8 h-8 rounded-full bg-[#0e7490] hover:bg-[#0d3d4f] flex items-center justify-center transition shrink-0">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>
             </button>
           </div>
@@ -227,24 +227,24 @@ function renderImplPhaseDetail(clientId,moduleId,phaseName){
                   <input id="eat-label-${t.id}" type="text" placeholder="File label (optional)" value="${esc(t.attachment?.label||t.attachment?.fileName||'')}" class="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
                   <label class="cursor-pointer flex items-center gap-1 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-2.5 py-1.5 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
                     📎 ${t.attachment?.url?'Replace':'Attach'}
-                    <input id="eat-file-${t.id}" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp" data-tid="${t.id}"/>
+                    <input id="eat-file-${t.id}" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp" data-tid="${esc(t.id)}"/>
                   </label>
                 </div>
                 ${t.attachment?.url?`<div id="eat-preview-${t.id}" class="mb-1 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2 py-1 rounded-xl flex items-center gap-2">
                   <span>${fileIcon(t.attachment.url,t.attachment.mimeType||'')}</span>
                   <span class="flex-1 truncate" id="eat-name-${t.id}">${esc(t.attachment.fileName||t.attachment.label||'Attachment')}</span>
-                  <button data-act="clear-attach" data-prefix="eat" data-tid="${t.id}" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
+                  <button data-act="clear-attach" data-prefix="eat" data-tid="${esc(t.id)}" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
                 </div>`:`<div id="eat-preview-${t.id}" class="hidden mb-1 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2 py-1 rounded-xl flex items-center gap-2">
                   <span id="eat-icon-${t.id}">📎</span>
                   <span class="flex-1 truncate" id="eat-name-${t.id}"></span>
-                  <button data-act="clear-attach" data-prefix="eat" data-tid="${t.id}" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
+                  <button data-act="clear-attach" data-prefix="eat" data-tid="${esc(t.id)}" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
                 </div>`}
                 <input id="eat-url-${t.id}" type="hidden" value="${esc(t.attachment?.url||'')}"/>
                 <input id="eat-mimetype-${t.id}" type="hidden" value="${esc(t.attachment?.mimeType||'')}"/>
                 <input id="eat-filename-${t.id}" type="hidden" value="${esc(t.attachment?.fileName||'')}"/>
                 <div class="flex gap-2 mt-2">
                   <button data-act="cancel-edit-timeline" class="flex-1 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50 transition">Cancel</button>
-                  <button data-act="save-edit-impl-update" data-cid="${c.id}" data-mid="${mod.id}" data-phase="${esc(phaseName)}" data-tid="${t.id}" class="flex-1 text-xs font-semibold text-white bg-[#0e7490] rounded-lg py-1.5 hover:bg-[#0d3d4f] transition">Save Edit</button>
+                  <button data-act="save-edit-impl-update" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" data-tid="${esc(t.id)}" class="flex-1 text-xs font-semibold text-white bg-[#0e7490] rounded-lg py-1.5 hover:bg-[#0d3d4f] transition">Save Edit</button>
                 </div>
               </div>
             </div>`;
@@ -255,13 +255,13 @@ function renderImplPhaseDetail(clientId,moduleId,phaseName){
             <div class="flex items-baseline gap-2 flex-wrap">
               <span class="text-sm font-medium text-gray-900">${esc(t.addedBy||'Unknown')}</span>
               <span class="text-xs text-gray-400">${esc(t.date)}${t.addedAt?` · ${fmtDate(t.addedAt)}`:''}</span>
-              ${hasHistory?`<button data-act="toggle-history" data-tid="${t.id}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">edited${t.edits.length>1?` (${t.edits.length}×)`:''} — ${isExpanded?'hide':'view'}</button>`:''}
+              ${hasHistory?`<button data-act="toggle-history" data-tid="${esc(t.id)}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">edited${t.edits.length>1?` (${t.edits.length}×)`:''} — ${isExpanded?'hide':'view'}</button>`:''}
             </div>
             <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5 mt-1 text-sm text-gray-700 leading-relaxed">${esc(t.update)}</div>
             ${t.attachment?.url?attachmentChip(t.attachment):''}
             <div class="flex items-center gap-3 mt-1.5 pl-1">
-              ${can('edit')?`<button data-act="edit-timeline" data-tid="${t.id}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>`:''}
-              ${can('admin')?`<button data-act="delete-impl-update" data-cid="${c.id}" data-mid="${mod.id}" data-phase="${esc(phaseName)}" data-tid="${t.id}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>`:''}
+              ${can('edit')?`<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>`:''}
+              ${can('admin')?`<button data-act="delete-impl-update" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>`:''}
               <button data-act="copy-update" data-text="${esc(t.update)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Copy</button>
             </div>
             ${isExpanded&&hasHistory?`<div class="mt-2 pl-3 border-l-2 border-amber-200 space-y-2">

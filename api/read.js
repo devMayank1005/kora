@@ -6,6 +6,7 @@
 const { validateToken } = require('./_auth');
 const { applyCors } = require('./_cors');
 const { refreshAttachmentUrls } = require('./_storage');
+const { serverError } = require('./_errors');
 
 module.exports = async function handler(req, res) {
   applyCors(req, res, 'GET, OPTIONS');
@@ -73,10 +74,12 @@ module.exports = async function handler(req, res) {
       if (!r.ok) return res.status(r.status).json({ error: 'Supabase read error' });
       const rows = await r.json();
 
-      // Only admins get the full record (needed for the Admin > Users panel,
-      // including passwordHash so it can be passed through unchanged on save).
-      // Non-admins only need id/name/role/username for assignee dropdowns —
-      // no email, no password hash, no created_at should ever reach them.
+      // M-3 fix (security audit): previously included passwordHash so an
+      // admin's browser could pass it back unchanged on save. That's no
+      // longer needed — write.js now looks up the existing hash server-side
+      // by id whenever a user record has no new plaintext password. This
+      // means a bcrypt hash is never present in a browser's memory at all,
+      // closing off "steal an admin session via XSS, harvest every hash".
       const isAdmin = check.payload.role === 'admin';
       const users = rows.map(row => isAdmin ? {
         id: row.id,
@@ -84,7 +87,6 @@ module.exports = async function handler(req, res) {
         name: row.name,
         email: row.email || '',
         role: row.role,
-        passwordHash: row.password_hash,
         createdAt: row.created_at,
         lockedUntil: row.locked_until,
         failedAttempts: row.failed_attempts || 0,
@@ -102,6 +104,6 @@ module.exports = async function handler(req, res) {
 
     return res.status(404).json({ error: `Unknown path: ${path}` });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, err, 'read.js');
   }
 };

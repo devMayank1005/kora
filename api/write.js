@@ -1,13 +1,30 @@
 // api/write.js — Supabase version
-// Replaces the GitHub-backed write after migration.
 // No SHA needed — no conflicts possible. Last write wins per row.
 // Frontend interface unchanged: POST with { path, content, sha, message }
 // sha is accepted but ignored.
+//
+// SECURITY: see KORA_SECURITY_REMEDIATION_PLAN.md for the audit this file
+// was rewritten against. Fixes landing in this file: C-1 (stored XSS via
+// unvalidated id), H-1 (PostgREST filter injection), H-2 (delete-by-omission
+// wipes all data), M-3 (password hashes trusted from client), M-6 (no
+// server-side password policy), L-5 (bcrypt cost), L-6 (last-admin guard),
+// L-1 (generic error responses).
 
 const bcrypt = require('bcryptjs');
 const { validateToken } = require('./_auth');
 const { logAudit, clientIp } = require('./_audit');
 const { applyCors } = require('./_cors');
+const { assertIdsDeep, assertRole, assertPassword } = require('./_validate');
+const { serverError } = require('./_errors');
+
+const BCRYPT_COST = 12; // L-5: raised from 10. Existing hashes upgrade via the
+                         // lazy-rehash path in login.js the next time each user logs in.
+
+// H-2 fix: refuse a delete that would remove more than this fraction of a
+// table's current rows in one call, unless the request explicitly confirms
+// it. A single accidental or malicious `content:"[]"` write used to silently
+// wipe every client with no warning and no confirmation step.
+const BULK_DELETE_GUARD_RATIO = 0.2;
 
 module.exports = async function handler(req, res) {
   applyCors(req, res, 'POST, OPTIONS');
@@ -22,18 +39,13 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized', reason: check.reason });
   }
 
-  const { path, content, message, screen } = req.body || {};
+  const { path, content, message, screen, confirmBulkDelete } = req.body || {};
   if (!path || content === undefined) {
     return res.status(400).json({ error: 'path and content required' });
   }
 
   // Server-side role enforcement — mirrors the UI's permission model instead
-  // of just trusting the UI to hide buttons. Before this, any authenticated
-  // user of ANY role (including viewer) could write anything by calling this
-  // endpoint directly, bypassing the frontend entirely.
-  //   - viewers can never write anything
-  //   - only admins can write users.json (user management is admin-only in the UI)
-  //   - editors and admins can write clients.json
+  // of just trusting the UI to hide buttons.
   if (check.payload.role === 'viewer') {
     return res.status(403).json({ error: 'Viewers cannot make changes' });
   }
@@ -57,7 +69,6 @@ module.exports = async function handler(req, res) {
     'Prefer': 'resolution=merge-duplicates',
   };
 
-  // Content comes as a JSON string from the frontend
   let data;
   try {
     data = typeof content === 'string' ? JSON.parse(content) : content;
@@ -67,6 +78,13 @@ module.exports = async function handler(req, res) {
 
   try {
     if (path === 'data/clients.json') {
+      // C-1 / H-1 fix: validate every id-shaped field anywhere in the payload
+      // BEFORE it touches a query string or gets stored (and later rendered
+      // back out unescaped on the frontend). This is the primary fix for
+      // both the stored-XSS chain and the filter-injection bug — neither is
+      // reachable if every id is provably a plain slug.
+      assertIdsDeep(data, 'clients');
+
       const rows = data.map(c => ({
         id: c.id,
         name: c.name,
@@ -80,7 +98,24 @@ module.exports = async function handler(req, res) {
         currency: c.currency || 'INR',
       }));
 
-      // Upsert all rows from the frontend
+      // H-2 fix: check how many rows currently exist before allowing a
+      // delete-by-omission to remove a large fraction of them.
+      const countRes = await fetch(`${SUPABASE_URL}/rest/v1/clients?select=id`, { headers: sbHeaders });
+      const currentIds = countRes.ok ? (await countRes.json()).map(r => r.id) : [];
+      const newIdSet = new Set(rows.map(r => r.id));
+      const removedCount = currentIds.filter(id => !newIdSet.has(id)).length;
+      if (
+        currentIds.length > 0 &&
+        removedCount / currentIds.length > BULK_DELETE_GUARD_RATIO &&
+        !confirmBulkDelete
+      ) {
+        return res.status(409).json({
+          error: `This would delete ${removedCount} of ${currentIds.length} clients. Resend with confirmBulkDelete: true if this is intentional.`,
+          removedCount,
+          currentCount: currentIds.length,
+        });
+      }
+
       if (rows.length > 0) {
         const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/clients`, {
           method: 'POST',
@@ -88,23 +123,22 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify(rows),
         });
         if (!upsertRes.ok) {
-          const e = await upsertRes.json();
-          return res.status(upsertRes.status).json({ error: e.message || 'Supabase upsert error' });
+          const e = await upsertRes.json().catch(() => ({}));
+          return res.status(upsertRes.status).json({ error: e.message || 'Save failed' });
         }
       }
 
-      // Delete any rows that are no longer in the frontend array
-      // (handles client deletion)
-      const newIds = rows.map(r => r.id);
-      if (newIds.length > 0) {
-        // Delete where id not in the new set
-        const idList = newIds.map(id => `"${id}"`).join(',');
+      // Delete rows no longer present in the frontend array (client deletion).
+      // H-1 fix: ids are already validated above (safe slug), and we still
+      // encode defensively here so this remains safe even if that validation
+      // is ever loosened by a future change.
+      if (newIdSet.size > 0) {
+        const idList = [...newIdSet].map(id => `"${encodeURIComponent(id)}"`).join(',');
         await fetch(
           `${SUPABASE_URL}/rest/v1/clients?id=not.in.(${idList})`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
         );
       } else {
-        // All clients deleted — delete everything
         await fetch(
           `${SUPABASE_URL}/rest/v1/clients?id=neq.""`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
@@ -121,22 +155,57 @@ module.exports = async function handler(req, res) {
     }
 
     if (path === 'data/users.json') {
-      // Each incoming user row has EITHER:
-      //   - a plaintext `password` field (this user's password is being set/changed
-      //     right now) — must be bcrypt-hashed here, server-side, never trust a
-      //     client-computed hash
-      //   - or an existing `passwordHash` field (untouched from a previous read,
-      //     already hashed in whatever scheme it's currently in) — passed through
-      //     as-is, not re-hashed
-      const rows = await Promise.all(data.map(async u => ({
-        id: u.id,
-        username: u.username,
-        name: u.name,
-        email: u.email || '',
-        role: u.role,
-        password_hash: u.password ? await bcrypt.hash(u.password, 10) : u.passwordHash,
-        created_at: u.createdAt || new Date().toISOString(),
-      })));
+      assertIdsDeep(data, 'users');
+      data.forEach(u => assertRole(u.role));
+
+      // L-6 fix: never allow a write that leaves zero admins — that's an
+      // unrecoverable lockout of the whole admin panel.
+      if (!data.some(u => u.role === 'admin')) {
+        return res.status(400).json({ error: 'At least one admin must remain' });
+      }
+
+      // M-3 fix: never trust a client-sent `passwordHash`. For any user
+      // record that isn't setting a new plaintext password, look up the
+      // existing hash server-side by id instead of accepting whatever the
+      // browser sent — combined with removing passwordHash from read.js's
+      // response, this means a hash is never in a browser's memory at all,
+      // closing off the "steal an admin session, harvest every hash" chain.
+      const idsNeedingLookup = data.filter(u => !u.password).map(u => u.id);
+      let existingHashes = {};
+      if (idsNeedingLookup.length) {
+        const idList = idsNeedingLookup.map(id => `"${encodeURIComponent(id)}"`).join(',');
+        const r = await fetch(
+          `${SUPABASE_URL}/rest/v1/users?id=in.(${idList})&select=id,password_hash`,
+          { headers: sbHeaders }
+        );
+        if (r.ok) {
+          (await r.json()).forEach(row => { existingHashes[row.id] = row.password_hash; });
+        }
+      }
+
+      const rows = await Promise.all(data.map(async u => {
+        let password_hash;
+        if (u.password) {
+          assertPassword(u.password); // M-6 fix: enforced here too, not just in the UI/change-password endpoint
+          password_hash = await bcrypt.hash(u.password, BCRYPT_COST);
+        } else {
+          password_hash = existingHashes[u.id];
+          if (!password_hash) {
+            const e = new Error(`No existing password set for user "${u.username || u.id}" — a password is required for a new user`);
+            e.statusCode = 400;
+            throw e;
+          }
+        }
+        return {
+          id: u.id,
+          username: u.username,
+          name: u.name,
+          email: u.email || '',
+          role: u.role,
+          password_hash,
+          created_at: u.createdAt || new Date().toISOString(),
+        };
+      }));
 
       if (rows.length > 0) {
         const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
@@ -145,15 +214,14 @@ module.exports = async function handler(req, res) {
           body: JSON.stringify(rows),
         });
         if (!upsertRes.ok) {
-          const e = await upsertRes.json();
-          return res.status(upsertRes.status).json({ error: e.message || 'Supabase upsert error' });
+          const e = await upsertRes.json().catch(() => ({}));
+          return res.status(upsertRes.status).json({ error: e.message || 'Save failed' });
         }
       }
 
-      // Delete removed users
       const newIds = rows.map(r => r.id);
       if (newIds.length > 0) {
-        const idList = newIds.map(id => `"${id}"`).join(',');
+        const idList = newIds.map(id => `"${encodeURIComponent(id)}"`).join(',');
         await fetch(
           `${SUPABASE_URL}/rest/v1/users?id=not.in.(${idList})`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
@@ -171,6 +239,6 @@ module.exports = async function handler(req, res) {
 
     return res.status(404).json({ error: `Unknown path: ${path}` });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, err, 'write.js');
   }
 };

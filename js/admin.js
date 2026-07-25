@@ -45,11 +45,11 @@ function renderAdminImpl(){
           <td class="px-4 py-3">${pr.atRisk>0?`<span class="k-badge" style="color:var(--red);border-color:var(--red);background:var(--red-hi);">${pr.atRisk} at risk</span>`:`<span class="text-gray-300 text-xs">—</span>`}</td>
           <td class="px-4 py-3">
             <div class="flex items-center justify-end gap-1">
-              <button data-act="modal-open" data-modal="rename-client" data-cid="${c.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Rename client">✎</button>
-              <button data-act="modal-open" data-modal="add-impl-module" data-cid="${c.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#0e7490] hover:bg-[#0e7490]/10 transition" title="Add module">+</button>
+              <button data-act="modal-open" data-modal="rename-client" data-cid="${esc(c.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Rename client">✎</button>
+              <button data-act="modal-open" data-modal="add-impl-module" data-cid="${esc(c.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#0e7490] hover:bg-[#0e7490]/10 transition" title="Add module">+</button>
               ${adminRowMenu([
-                {label:'✎ Rename Modules',act:'modal-open',extra:`data-modal="rename-modules" data-cid="${c.id}"`},
-                {label:'Remove from Implementations',act:'delete-impl-client',extra:`data-id="${c.id}"`,danger:true}
+                {label:'✎ Rename Modules',act:'modal-open',extra:`data-modal="rename-modules" data-cid="${esc(c.id)}"`},
+                {label:'Remove from Implementations',act:'delete-impl-client',extra:`data-id="${esc(c.id)}"`,danger:true}
               ])}
             </div>
           </td>
@@ -92,9 +92,9 @@ function renderAdminAms(){
           <td class="px-4 py-3 text-gray-600">${t.totalHours.toFixed(1)}</td>
           <td class="px-4 py-3">
             <div class="flex items-center justify-end gap-1">
-              <button data-act="modal-open" data-modal="rename-client" data-cid="${c.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Rename client">✎</button>
+              <button data-act="modal-open" data-modal="rename-client" data-cid="${esc(c.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Rename client">✎</button>
               ${adminRowMenu([
-                {label:'Remove from AMS',act:'delete-ams-client',extra:`data-id="${c.id}"`,danger:true}
+                {label:'Remove from AMS',act:'delete-ams-client',extra:`data-id="${esc(c.id)}"`,danger:true}
               ])}
             </div>
           </td>
@@ -141,11 +141,11 @@ function renderAdminClients(){
           <td class="px-4 py-3">${co>0?`<span class="k-badge" style="color:var(--green);border-color:var(--green);background:var(--green-hi);">${co}</span>`:`<span class="text-gray-300 text-xs">—</span>`}</td>
           <td class="px-4 py-3">
             <div class="flex items-center justify-end gap-1">
-              <button data-act="modal-open" data-modal="rename-client" data-cid="${c.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Rename client">✎</button>
-              <button data-act="modal-open" data-modal="add-integ" data-cid="${c.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#0e7490] hover:bg-[#0e7490]/10 transition" title="Add integration">+</button>
+              <button data-act="modal-open" data-modal="rename-client" data-cid="${esc(c.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition" title="Rename client">✎</button>
+              <button data-act="modal-open" data-modal="add-integ" data-cid="${esc(c.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#0e7490] hover:bg-[#0e7490]/10 transition" title="Add integration">+</button>
               ${adminRowMenu([
-                {label:'✎ Rename Integrations',act:'modal-open',extra:`data-modal="rename-integrations" data-cid="${c.id}"`},
-                {label:'Remove from Integrations',act:'delete-client',extra:`data-id="${c.id}"`,danger:true}
+                {label:'✎ Rename Integrations',act:'modal-open',extra:`data-modal="rename-integrations" data-cid="${esc(c.id)}"`},
+                {label:'Remove from Integrations',act:'delete-client',extra:`data-id="${esc(c.id)}"`,danger:true}
               ])}
             </div>
           </td>
@@ -255,17 +255,17 @@ function renderAdminUsers(){
           <td class="px-4 py-3 font-medium text-gray-900">${esc(u.name)}</td>
           <td class="px-4 py-3 text-xs text-gray-500">${esc(u.email||'—')}</td>
           <td class="px-4 py-3">${can('admin')&&u.id!==S.user?.id
-            ?`<select data-act="change-role" data-uid="${u.id}" class="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${ROLES.map(r=>`<option${r===u.role?' selected':''}>${r}</option>`).join('')}</select>`
+            ?`<select data-act="change-role" data-uid="${esc(u.id)}" class="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${ROLES.map(r=>`<option${r===u.role?' selected':''}>${r}</option>`).join('')}</select>`
             :roleBadge(u.role)}
           </td>
           <td class="px-4 py-3">${u.id!==S.user?.id
             ?`<div class="flex items-center justify-end gap-1">
-                <button data-act="edit-user" data-uid="${u.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#0e7490] hover:bg-[#0e7490]/10 transition" title="Edit user">✎</button>
-                <button data-act="send-welcome-one" data-uid="${u.id}" class="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 transition" title="Send welcome email">✉</button>
+                <button data-act="edit-user" data-uid="${esc(u.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#0e7490] hover:bg-[#0e7490]/10 transition" title="Edit user">✎</button>
+                <button data-act="send-welcome-one" data-uid="${esc(u.id)}" class="w-7 h-7 flex items-center justify-center rounded-lg text-green-600 hover:bg-green-50 transition" title="Send welcome email">✉</button>
                 ${adminRowMenu([
-                  {label:'Force Logout',act:'force-logout-user',extra:`data-uid="${u.id}"`},
-                  ...(u.lockedUntil&&new Date(u.lockedUntil)>new Date()?[{label:'Clear Lockout',act:'clear-lockout',extra:`data-uid="${u.id}"`}]:[]),
-                  {label:'Delete User',act:'delete-user',extra:`data-uid="${u.id}"`,danger:true}
+                  {label:'Force Logout',act:'force-logout-user',extra:`data-uid="${esc(u.id)}"`},
+                  ...(u.lockedUntil&&new Date(u.lockedUntil)>new Date()?[{label:'Clear Lockout',act:'clear-lockout',extra:`data-uid="${esc(u.id)}"`}]:[]),
+                  {label:'Delete User',act:'delete-user',extra:`data-uid="${esc(u.id)}"`,danger:true}
                 ])}
               </div>`
             :`<span class="text-xs text-gray-300">current user</span>`}</td>

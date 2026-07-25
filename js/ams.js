@@ -63,7 +63,7 @@ function renderAmsClientList(){
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     ${(()=>{const amsClients=S.clients.filter(c=>c.workLog!==undefined);return amsClients.length?amsClients.map((c,idx)=>{
       const t=amsTotals(c,'','');
-      return`<div data-act="open-ams-client" data-id="${c.id}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
+      return`<div data-act="open-ams-client" data-id="${esc(c.id)}" style="animation-delay:${Math.min(idx*35,400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
         <div class="flex items-start justify-between mb-1">
           <div class="font-semibold text-gray-900" title="${esc(c.name)}">${esc(c.name)}</div>
           ${ragBadge(amsClientRag(c))}
@@ -91,11 +91,11 @@ function renderAmsClientDetail(clientId){
       ${c.description?`<p class="text-sm text-gray-400 mt-0.5">${esc(c.description)}</p>`:''}
     </div>
     ${can('admin')?`<div class="flex gap-2 flex-wrap">
-      <button data-act="edit-ams-client" data-id="${c.id}" class="text-gray-400 hover:text-[#0e7490] text-xs px-2 border border-gray-200 rounded-lg py-1.5">Edit Client</button>
-      <button data-act="delete-ams-client" data-id="${c.id}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Delete Client</button>
+      <button data-act="edit-ams-client" data-id="${esc(c.id)}" class="text-gray-400 hover:text-[#0e7490] text-xs px-2 border border-gray-200 rounded-lg py-1.5">Edit Client</button>
+      <button data-act="delete-ams-client" data-id="${esc(c.id)}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Delete Client</button>
     </div>`:''}
   </div>
-  ${can('edit')?`<div class="mb-5"><button data-act="modal-open" data-modal="add-ams-entry" data-cid="${c.id}" class="btn-grad text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">+ Add Entry</button></div>`:''}
+  ${can('edit')?`<div class="mb-5"><button data-act="modal-open" data-modal="add-ams-entry" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">+ Add Entry</button></div>`:''}
   ${can('admin')&&t.hasRate?`<div class="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
     <h3 class="font-semibold text-gray-900 text-sm mb-3">Billing</h3>
     ${t.hasBucket?`<div class="grid grid-cols-3 gap-4 mb-4">
@@ -109,9 +109,9 @@ function renderAmsClientDetail(clientId){
       <div class="flex gap-1.5 items-end pb-0.5">
         ${[['This Month','this-month'],['Last Month','last-month'],['This Quarter','this-quarter'],['All Time','all-time']].map(([l,k])=>`<button data-act="ams-quick" data-range="${k}" class="text-xs px-2.5 py-2 rounded-lg border transition ${S.amsQuick===k?'bg-[#0e7490] text-white border-[#0e7490]':'border-gray-200 text-gray-500 hover:border-[#0e7490] hover:text-[#0e7490]'}">${l}</button>`).join('')}
       </div>
-      <button data-act="exp-ams-activity" data-cid="${c.id}" class="bg-white border border-[#0e7490] text-[#0e7490] text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#0e7490]/5 transition">📋 Activity Report</button>
-      <button data-act="exp-excel" data-etype="ams" data-cid="${c.id}" class="bg-green-50 border border-green-200 text-green-700 text-sm font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
-      <button data-act="open-import-ams" data-cid="${c.id}" class="bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium px-3 py-2 rounded-xl hover:bg-amber-100 transition">⬆ Import</button>
+      <button data-act="exp-ams-activity" data-cid="${esc(c.id)}" class="bg-white border border-[#0e7490] text-[#0e7490] text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#0e7490]/5 transition">📋 Activity Report</button>
+      <button data-act="exp-excel" data-etype="ams" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-sm font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
+      <button data-act="open-import-ams" data-cid="${esc(c.id)}" class="bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium px-3 py-2 rounded-xl hover:bg-amber-100 transition">⬆ Import</button>
     </div>
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Hours This Period${t.hasBucket?` (${t.coveredHours.toFixed(1)} covered)`:''}</div></div>
@@ -125,7 +125,7 @@ function renderAmsClientDetail(clientId){
     <div class="flex flex-wrap items-end gap-3 mb-4">
       <div><label class="block text-xs text-gray-400 mb-1">From</label><input id="ams-from" data-act="ams-range" type="date" value="${esc(S.amsFrom)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       <div><label class="block text-xs text-gray-400 mb-1">To</label><input id="ams-to" data-act="ams-range" type="date" value="${esc(S.amsTo)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <button data-act="exp-ams-activity" data-cid="${c.id}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📋 Activity Report</button>
+      <button data-act="exp-ams-activity" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📋 Activity Report</button>
     </div>
     <div class="bg-gray-50 rounded-xl p-4 inline-block"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Total Hours (Retainer)</div></div>
   </div>`:''}
@@ -159,7 +159,7 @@ function renderAmsClientDetail(clientId){
             <td class="px-3 py-2 text-xs text-gray-600 max-w-[160px]">${esc(e.solution||'—')}</td>
             <td class="px-3 py-2 text-xs text-gray-600 whitespace-nowrap">${esc(e.modeOfSupport||'—')}</td>
             <td class="px-3 py-2 text-gray-700 font-medium text-xs text-right">${Number(e.hours||0).toFixed(1)}</td>
-            ${can('edit')?`<td class="px-3 py-2"><div class="flex gap-2"><button data-act="edit-ams-entry" data-cid="${c.id}" data-eid="${e.id}" class="text-xs text-gray-300 hover:text-[#0e7490]">Edit</button>${can('admin')?`<button data-act="delete-ams-entry" data-cid="${c.id}" data-eid="${e.id}" class="text-xs text-gray-300 hover:text-rose-500">Delete</button>`:''}</div></td>`:''}
+            ${can('edit')?`<td class="px-3 py-2"><div class="flex gap-2"><button data-act="edit-ams-entry" data-cid="${esc(c.id)}" data-eid="${e.id}" class="text-xs text-gray-300 hover:text-[#0e7490]">Edit</button>${can('admin')?`<button data-act="delete-ams-entry" data-cid="${esc(c.id)}" data-eid="${e.id}" class="text-xs text-gray-300 hover:text-rose-500">Delete</button>`:''}</div></td>`:''}
           </tr>`;
         }).join(''):`<tr><td colspan="${COLS.length+(can('edit')?1:0)}" class="text-center py-12 text-gray-400 text-sm">${emptyIcon('hours')}No entries yet. Add one to get started.</td></tr>`}
       </tbody>

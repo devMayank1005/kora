@@ -230,7 +230,7 @@ function renderModal(){
         <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Select Clients</div>
         <div class="max-h-48 overflow-y-auto space-y-1.5">
           ${allC.map(c=>`<label class="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-            <input type="checkbox" data-act="portfolio-client-toggle" data-cid="${c.id}" class="rounded" checked/>
+            <input type="checkbox" data-act="portfolio-client-toggle" data-cid="${esc(c.id)}" class="rounded" checked/>
             <span class="text-sm text-gray-800">${esc(c.name)}</span>
             <span class="text-xs text-gray-400 ml-auto">${[c.modules&&'Impl',((c.integrations||[]).length>0)&&'Integ',c.workLog&&'AMS'].filter(Boolean).join(' · ')}</span>
           </label>`).join('')}

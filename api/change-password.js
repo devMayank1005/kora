@@ -21,8 +21,11 @@ const bcrypt = require('bcryptjs');
 const { validateToken, signToken } = require('./_auth');
 const { applyCors } = require('./_cors');
 const { logAudit, clientIp } = require('./_audit');
+const { assertPassword } = require('./_validate');
+const { serverError } = require('./_errors');
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+const BCRYPT_COST = 12; // L-5: raised from 10, matches write.js/login.js
 
 function sha256(str) {
   return crypto.createHash('sha256').update(str).digest('hex');
@@ -51,8 +54,12 @@ module.exports = async function handler(req, res) {
   if (!currentPassword) {
     return res.status(400).json({ error: 'Current password is required' });
   }
-  if (newPassword && newPassword.length < 8) {
-    return res.status(400).json({ error: 'New password must be at least 8 characters' });
+  if (newPassword) {
+    try {
+      assertPassword(newPassword);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
   }
 
   const sbHeaders = {
@@ -86,7 +93,7 @@ module.exports = async function handler(req, res) {
 
     const passwordChanged = !!newPassword;
     if (passwordChanged) {
-      update.password_hash = await bcrypt.hash(newPassword, 10);
+      update.password_hash = await bcrypt.hash(newPassword, BCRYPT_COST);
       // Bump token_version — invalidates every OTHER session immediately.
       // A fresh token is issued below so THIS session isn't logged out by it.
       update.token_version = (user.token_version || 0) + 1;
@@ -134,6 +141,6 @@ module.exports = async function handler(req, res) {
       },
     });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, err, 'change-password.js');
   }
 };

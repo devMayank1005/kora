@@ -6,6 +6,7 @@
 const { validateToken } = require('./_auth');
 const { applyCors } = require('./_cors');
 const { logAudit, clientIp } = require('./_audit');
+const { serverError } = require('./_errors');
 
 module.exports = async function handler(req, res) {
   applyCors(req, res, 'POST, OPTIONS');
@@ -59,6 +60,6 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({ ok: true });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, err, 'clear-lockout.js');
   }
 };

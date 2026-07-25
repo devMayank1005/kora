@@ -9,6 +9,7 @@
 const { validateToken } = require('./_auth');
 const { logAudit, clientIp } = require('./_audit');
 const { applyCors } = require('./_cors');
+const { serverError } = require('./_errors');
 
 module.exports = async function handler(req, res) {
   applyCors(req, res, 'POST, OPTIONS');
@@ -87,6 +88,6 @@ module.exports = async function handler(req, res) {
 
     return res.status(400).json({ error: "scope must be 'all' or 'user' (with userId)" });
   } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return serverError(res, err, 'force-logout.js');
   }
 };
