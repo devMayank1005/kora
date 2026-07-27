@@ -96,6 +96,7 @@ module.exports = async function handler(req, res) {
         man_day_rate: c.manDayRate || null,
         total_available_hours: c.totalAvailableHours || null,
         currency: c.currency || 'INR',
+        master_assignee: c.masterAssignee || null,
       }));
 
       // H-2 fix: check how many rows currently exist before allowing a

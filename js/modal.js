@@ -115,6 +115,12 @@ function renderModal(){
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Module Name *</label><input id="m1" type="text" placeholder="e.g. Core HR, Payroll, Leave & Attendance" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       <p class="text-xs text-gray-400">All ${PHASES.length} phases (BPU through Hypercare) will start as "Not Started" for this module.</p>
     </div>`;
+  } else if(m.type==='edit-impl-client'){
+    title='Edit Implementation Client';
+    body=`<div class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">Master Assignee</label>${assigneeSelect('m1',m.masterAssignee||'')}</div>
+    </div>`;
+    btnLabel='Save';
   } else if(m.type==='add-ams-client'){
     title='Add Client to AMS';
     body=`<div class="space-y-3">

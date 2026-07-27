@@ -427,6 +427,10 @@ document.addEventListener('click',async e=>{
     const other=c.integrations.length>0||c.modules!==undefined;
     S.modal={type:'confirm',msg:other?`Remove "${c.name}" from AMS (all logged hours)? They'll stay in other sections. Cannot be undone.`:`Delete "${c.name}" entirely, including all logged hours? Cannot be undone.`,_act:'delete-ams-client',_id:c.id};render();return;
   }
+  if(act==='edit-impl-client'){
+    if(!can('edit'))return;const c=S.clients.find(x=>x.id===el.dataset.id);if(!c)return;
+    S.modal={type:'edit-impl-client',cid:c.id,masterAssignee:c.masterAssignee||''};render();return;
+  }
   if(act==='edit-ams-client'){
     if(!can('admin'))return;const c=S.clients.find(x=>x.id===el.dataset.id);if(!c)return;
     S.modal={type:'edit-ams-client',cid:c.id,description:c.description,manDayRate:c.manDayRate,totalAvailableHours:c.totalAvailableHours,currency:c.currency||'INR'};render();return;
@@ -766,6 +770,14 @@ document.addEventListener('click',async e=>{
       if(!c.modules)c.modules=[];c.modules.push(nm);S.modal={...m,busy:true};render();
       try{await saveClients(`Add module ${name}`);S.modal=null;showToast(`${name} added`);navigate('impl-client-detail',{clientId:c.id});}
       catch(err){c.modules.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
+    } else if(m.type==='edit-impl-client'){
+      const c=S.clients.find(x=>x.id===m.cid);if(!c)return;
+      const assignee=document.getElementById('m1')?.value||'';
+      const snapshot={masterAssignee:c.masterAssignee};
+      if(assignee){c.masterAssignee=assignee;}else{delete c.masterAssignee;}
+      S.modal={...m,busy:true};render();
+      try{await saveClients(`Edit Implementation client: ${c.name}`);S.modal=null;showToast('Saved ✓');navigate('impl-client-detail',{clientId:c.id});}
+      catch(err){if(snapshot.masterAssignee===undefined)delete c.masterAssignee;else c.masterAssignee=snapshot.masterAssignee;S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='add-ams-client'){
       const existingId=document.getElementById('m0')?.value;
       const rateRaw=document.getElementById('m3')?.value;

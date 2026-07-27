@@ -54,6 +54,7 @@ module.exports = async function handler(req, res) {
         if (row.man_day_rate !== null) c.manDayRate = row.man_day_rate;
         if (row.total_available_hours !== null) c.totalAvailableHours = row.total_available_hours;
         if (row.currency) c.currency = row.currency;
+        if (row.master_assignee) c.masterAssignee = row.master_assignee;
         return c;
       });
 
