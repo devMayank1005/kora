@@ -32,8 +32,8 @@ function renderImplClientList(){
             <div class="text-xs text-gray-400 mt-0.5 truncate">${c.description?esc(c.description):`${mods.length} module${mods.length!==1?'s':''}`}</div>
           </div>
         </div>
-        <div class="flex items-center gap-2 mt-3">
-          ${c.masterAssignee?`${avatarChip(c.masterAssignee,20)}<span class="text-xs text-gray-600 truncate">${esc(c.masterAssignee)}</span>`:`<span class="text-xs text-gray-400 italic">— unassigned —</span>`}
+        <div class="flex items-center gap-2 mt-3" onclick="event.stopPropagation()">
+          ${can('editor')?`<select data-act="inline-master-assignee" data-cid="${esc(c.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[140px]">${assigneeOptionsOnly(c.masterAssignee)}</select>`:c.masterAssignee?`${avatarChip(c.masterAssignee,20)}<span class="text-xs text-gray-600 truncate">${esc(c.masterAssignee)}</span>`:`<span class="text-xs text-gray-400 italic">— unassigned —</span>`}
         </div>
         <div class="flex gap-5 mt-3.5 pt-3 border-t border-gray-100">
           ${miniStat(mods.length,'modules')}
@@ -73,7 +73,7 @@ function renderImplClientDetail(clientId){
         <button data-act="modal-open" data-modal="add-impl-module" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">+ Add Module</button>
         <button data-act="exp-impl-pdf" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📄 Export PDF</button>
       <button data-act="exp-excel" data-etype="impl" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
-        ${can('edit')?`<button data-act="edit-impl-client" data-id="${esc(c.id)}" class="text-gray-400 hover:text-[#0e7490] text-xs px-2 border border-gray-200 rounded-lg py-1.5">Edit Client</button>`:''}
+        ${can('editor')?`<button data-act="edit-impl-client" data-id="${esc(c.id)}" class="text-gray-400 hover:text-[#0e7490] text-xs px-2 border border-gray-200 rounded-lg py-1.5">Edit Client</button>`:''}
         ${can('admin')?`<button data-act="delete-impl-client" data-id="${esc(c.id)}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Remove Client</button>`:''}`}
     </div>
   </div>

@@ -428,7 +428,7 @@ document.addEventListener('click',async e=>{
     S.modal={type:'confirm',msg:other?`Remove "${c.name}" from AMS (all logged hours)? They'll stay in other sections. Cannot be undone.`:`Delete "${c.name}" entirely, including all logged hours? Cannot be undone.`,_act:'delete-ams-client',_id:c.id};render();return;
   }
   if(act==='edit-impl-client'){
-    if(!can('edit'))return;const c=S.clients.find(x=>x.id===el.dataset.id);if(!c)return;
+    if(!can('editor'))return;const c=S.clients.find(x=>x.id===el.dataset.id);if(!c)return;
     S.modal={type:'edit-impl-client',cid:c.id,masterAssignee:c.masterAssignee||''};render();return;
   }
   if(act==='edit-ams-client'){
@@ -871,6 +871,16 @@ document.addEventListener('change',async e=>{
     const prev=i.assignee;i.assignee=assigneeEl.value;assigneeEl.disabled=true;
     try{await saveClients(`Assignee: ${i.name} → ${i.assignee||'Unassigned'}`);showToast(`Assignee updated ✓`);assigneeEl.disabled=false;}
     catch(err){i.assignee=prev;showToast('Failed: '+err.message,'error');render();}
+    return;
+  }
+  const masterAssigneeEl=e.target.closest('[data-act="inline-master-assignee"]');
+  if(masterAssigneeEl&&can('editor')){
+    const c=S.clients.find(x=>x.id===masterAssigneeEl.dataset.cid);if(!c)return;
+    const prev=c.masterAssignee;const val=masterAssigneeEl.value;
+    if(val){c.masterAssignee=val;}else{delete c.masterAssignee;}
+    masterAssigneeEl.disabled=true;
+    try{await saveClients(`Master assignee: ${c.name} → ${val||'Unassigned'}`);showToast(`Master assignee updated ✓`);masterAssigneeEl.disabled=false;}
+    catch(err){if(prev===undefined)delete c.masterAssignee;else c.masterAssignee=prev;showToast('Failed: '+err.message,'error');render();}
     return;
   }
   const roleEl=e.target.closest('[data-act="change-role"]');
