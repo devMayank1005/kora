@@ -28,9 +28,11 @@ document.addEventListener('click',async e=>{
     S.pendingPath=null;
     if(resumed&&validateView(resumed.view,resumed.params||{}))navigate(resumed.view,resumed.params||{});
     else navigate('dashboard');
+    clearInterval(_bgRefreshTimer);
+    _bgRefreshTimer=setInterval(backgroundRefreshClients,60000);
     return;
   }
-  if(act==='logout'){clearSession();S.user=null;S.clients=[];S.users=[];S.usersForDropdown=[];S.shas={clients:null,users:null};S.sessionToken=null;navigate('login');return;}
+  if(act==='logout'){clearInterval(_bgRefreshTimer);_bgRefreshTimer=null;clearSession();S.user=null;S.clients=[];S.users=[];S.usersForDropdown=[];S.shas={clients:null,users:null};S.sessionToken=null;navigate('login');return;}
   if(act==='nav-dashboard'){navigate('dashboard');return;}
   if(act==='nav-clients'){navigate('clients');return;}
   if(act==='nav-impl'){navigate('impl-clients');return;}
@@ -516,7 +518,7 @@ document.addEventListener('click',async e=>{
           const d=await r.json();
           if(!r.ok)throw new Error(d.error||'Force logout failed');
           S.modal=null;showToast(`${d.affected} user${d.affected!==1?'s':''} logged out — including you`);
-          clearSession();S.user=null;S.clients=[];S.users=[];S.usersForDropdown=[];S.shas={clients:null,users:null};S.sessionToken=null;navigate('login');
+          clearInterval(_bgRefreshTimer);_bgRefreshTimer=null;clearSession();S.user=null;S.clients=[];S.users=[];S.usersForDropdown=[];S.shas={clients:null,users:null};S.sessionToken=null;navigate('login');
         }catch(err){S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='force-logout-user'){
@@ -996,7 +998,10 @@ window.addEventListener('resize',()=>{clearTimeout(_resizeTimer);_resizeTimer=se
         if(rv&&rv.view&&validateView(rv.view,rv.params||{})){navigate(rv.view,rv.params||{});}
         else{navigate('dashboard');}
       }
+      clearInterval(_bgRefreshTimer);
+      _bgRefreshTimer=setInterval(backgroundRefreshClients,60000);
     }catch(e){
+      clearInterval(_bgRefreshTimer);_bgRefreshTimer=null;
       clearSession();S.user=null;S.sessionToken=null;render();
     }
   }else{

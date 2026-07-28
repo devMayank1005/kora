@@ -1,4 +1,5 @@
 const KOGNOZ_LOGO="/kognoz_Iogo.png";
+let _bgRefreshTimer=null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
 const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null};
 
@@ -346,6 +347,37 @@ async function apiRead(path){
     if(d.message&&!d.content)throw new Error(d.message);
     return{content:JSON.parse(atob(d.content.replace(/\n/g,''))),sha:d.sha};
   }finally{stopLoading();}
+}
+async function apiReadSilent(path){
+  // Same as apiRead but skips the loading bar — used for background polling
+  // that shouldn't visually interrupt whatever the person is doing.
+  const r=await fetch(`/api/read?path=${encodeURIComponent(path)}`,{headers:{'x-session-token':S.sessionToken||''}});
+  if(!r.ok)throw new Error(`Read ${r.status}`);
+  const d=await r.json();
+  if(d.message&&!d.content)throw new Error(d.message);
+  return{content:JSON.parse(atob(d.content.replace(/\n/g,''))),sha:d.sha};
+}
+// Phase 2: reduce how stale a long-open tab gets, without ever discarding
+// unsaved input. Runs silently on a timer — never while a modal is open
+// (someone's actively filling out a form), and never for whichever single
+// client the person currently has a detail page open on, since that page
+// can hold in-progress inline edits (status/dates/next-action text) that
+// were never routed through a modal and would otherwise get clobbered by a
+// blanket refresh. Everything else gets quietly kept current.
+async function backgroundRefreshClients(){
+  if(!S.user||S.modal||document.hidden)return;
+  try{
+    const fresh=await apiReadSilent('data/clients.json');
+    const keepLocalId=S.params&&S.params.clientId?S.params.clientId:null;
+    const freshMap=new Map(fresh.content.map(c=>[c.id,c]));
+    if(keepLocalId){
+      const mine=S.clients.find(c=>c.id===keepLocalId);
+      if(mine)freshMap.set(keepLocalId,mine);
+    }
+    S.clients=Array.from(freshMap.values());
+    S.shas.clients=fresh.sha;
+    render();
+  }catch(e){/* a failed background refresh is never worth surfacing to the person */}
 }
 async function apiWrite(path,obj,sha,msg,changedIds){
   startLoading();
