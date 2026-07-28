@@ -221,6 +221,7 @@ document.addEventListener('click',async e=>{
     render();return;
   }
   if(act==='select-ams-entry'){S.selectedAmsEntryId=el.dataset.eid;render();return;}
+  if(act==='select-integ'){S.selectedIntegId=el.dataset.iid;render();return;}
   // ── Milestone handlers ──
   if(act==='add-milestone-btn'){
     if(!can('edit'))return;
@@ -894,6 +895,7 @@ document.addEventListener('change',async e=>{
     catch(err){u.role=prev;showToast('Failed','error');render();}
     return;
   }
+  if(e.target.dataset?.act==='integ-sort-select'){S.sort={key:e.target.value,dir:'asc'};render();return;}
   if(e.target.dataset?.act==='audit-from'){S.auditFrom=e.target.value;return;}
   if(e.target.dataset?.act==='audit-to'){S.auditTo=e.target.value;return;}
   if(e.target.dataset?.act==='audit-user'){S.auditUser=e.target.value;S.auditPage=0;loadAuditLog();return;}

@@ -307,6 +307,27 @@ label { font-size: 11px; font-weight: 500; color: var(--mute); text-transform: u
   transition: width .3s ease, opacity .2s ease;
 }
 
+/* ── Center loading overlay ──────────────────────────────────── */
+/* Only appears for operations that take a moment (see startLoading's
+   200ms delay in core.js) — quick inline edits still just use the thin
+   top bar above, so this never flashes on every small save. */
+#loading-overlay {
+  position: fixed; inset: 0; z-index: 250;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(245, 249, 250, 0.55);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+}
+#loading-overlay.visible { opacity: 1; pointer-events: auto; }
+.loading-overlay-spinner {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.12);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--teal, #0e7490);
+}
+.loading-overlay-spinner svg { width: 26px; height: 26px; }
+
 /* ── Toast ───────────────────────────────────────────────────── */
 .toast-in { animation: toast var(--t); }
 @keyframes toast { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

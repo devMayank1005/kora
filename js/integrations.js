@@ -91,26 +91,51 @@ function renderClientDetail(clientId){
   ${S.bulkIntegMode&&S.bulkIntegCid===c.id?`<div class="flex items-center gap-3 mb-3 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
     <span class="text-sm text-rose-700 font-medium">Select integrations to delete</span>
   </div>`:''}
-  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden${S.bulkIntegMode&&S.bulkIntegCid===c.id?' ring-2 ring-rose-300':''}">
-    <table class="w-full text-sm">
-      <thead class="border-b border-gray-100 bg-gray-50 sticky-head">
-        <tr>${S.bulkIntegMode&&S.bulkIntegCid===c.id?`<th class="px-4 py-3 w-10"><input type="checkbox" data-act="toggle-bulk-integ-all" data-cid="${esc(c.id)}" ${sorted.length&&sorted.every(i=>S.bulkIntegSelected.has(i.id))?'checked':''} class="rounded"/></th>`:''}${cols.map(([k,l])=>`<th data-act="sort" data-key="${esc(k)}" data-sort class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer transition select-none">${l} ${sortArrow(k)}</th>`).join('')}</tr>
-      </thead>
-      <tbody class="divide-y divide-gray-50">
-        ${sorted.length?sorted.map(i=>{
-          const lu=lastUpdateDate(i);
-          const bulkOn=S.bulkIntegMode&&S.bulkIntegCid===c.id;
-          return`<tr class="hover:bg-gray-50/60 transition${bulkOn?'':' cursor-pointer'}" ${bulkOn?'':`data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`}>
-          ${bulkOn?`<td class="px-4 py-3"><input type="checkbox" data-act="toggle-bulk-integ-row" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" ${S.bulkIntegSelected.has(i.id)?'checked':''} class="rounded"/></td>`:''}
-          <td class="px-4 py-3"${bulkOn?` data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`:''}><div class="font-medium text-gray-900" title="${esc(i.name)}">${esc(i.name)}</div>${i.description?`<div class="text-xs text-gray-400 truncate max-w-xs" title="${esc(i.description)}">${esc(i.description)}</div>`:''}</td>
-          <td class="px-4 py-3" onclick="event.stopPropagation()">${can('editor')?`<select data-act="inline-status" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s=>`<option value="${esc(s)}"${s===i.status?' selected':''}>${esc(s)}</option>`).join('')}</select>`:sbadge(i.status)}</td>
-          <td class="px-4 py-3 text-gray-600" onclick="event.stopPropagation()">${can('editor')?`<select data-act="inline-assignee" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[140px]">${assigneeOptionsOnly(i.assignee)}</select>`:esc(i.assignee||'—')}</td>
-          <td class="px-4 py-3"${bulkOn?'':` data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`}><div class="flex flex-col gap-1"><span class="text-gray-600">${fmtDate(i.dueDate)}</span>${overdueBadge(i)}</div></td>
-          <td class="px-4 py-3 text-gray-500"${bulkOn?'':` data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`}>${lu?fmtDate(lu):'<span class="text-amber-600 text-xs font-medium">No updates</span>'}</td>
-        </tr>`;}).join(''):`<tr><td colspan="6" class="text-center py-12 text-gray-400 text-sm">No integrations match this filter</td></tr>`}
-      </tbody>
-    </table>
-  </div>
+  ${(()=>{
+    const bulkOn=S.bulkIntegMode&&S.bulkIntegCid===c.id;
+    if(!sorted.length)return`<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('search')}No integrations match this filter</div>`;
+    const selId=S.selectedIntegId&&sorted.some(i=>i.id===S.selectedIntegId)?S.selectedIntegId:sorted[0].id;
+    const sel=sorted.find(i=>i.id===selId);
+    const lu=lastUpdateDate(sel);
+    return`<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-5${bulkOn?' ring-2 ring-rose-300':''}" style="min-height:420px;">
+    <div class="col-span-2 border-r border-gray-100 overflow-y-auto" style="max-height:640px;">
+      <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wide sticky top-0 flex items-center justify-between">
+        <span>${sorted.length} integration${sorted.length!==1?'s':''}</span>
+        ${bulkOn?`<input type="checkbox" data-act="toggle-bulk-integ-all" data-cid="${esc(c.id)}" ${sorted.every(i=>S.bulkIntegSelected.has(i.id))?'checked':''} class="rounded"/>`:`<select data-act="integ-sort-select" class="text-[10px] border-none bg-transparent text-gray-400 focus:outline-none">${cols.map(([k,l])=>`<option value="${esc(k)}"${S.sort.key===k?' selected':''}>${l}</option>`).join('')}</select>`}
+      </div>
+      ${sorted.map(i=>{
+        const active=i.id===selId;
+        return`<div ${bulkOn?`data-act="toggle-bulk-integ-row" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"`:`data-act="select-integ" data-iid="${esc(i.id)}"`} class="px-3 py-2.5 border-b border-gray-50 cursor-pointer transition flex items-start gap-2 ${active&&!bulkOn?'bg-[#0e7490]/5 border-l-2 border-l-[#0e7490]':'border-l-2 border-l-transparent hover:bg-gray-50'}">
+          ${bulkOn?`<input type="checkbox" ${S.bulkIntegSelected.has(i.id)?'checked':''} class="rounded mt-0.5" onclick="event.stopPropagation()" data-act="toggle-bulk-integ-row" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}"/>`:''}
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-baseline gap-2">
+              <span class="text-xs font-medium text-gray-900 truncate">${esc(i.name)}</span>
+              <span class="text-xs shrink-0 ${isOverdue(i)?'text-rose-600 font-semibold':'text-gray-400'}">${fmtDate(i.dueDate)}</span>
+            </div>
+            <div class="text-xs text-gray-500 truncate mt-0.5">${i.description?esc(i.description):'—'}</div>
+            <div class="flex gap-1.5 mt-1.5">${sbadge(i.status)}${overdueBadge(i)}</div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="col-span-3 p-5 overflow-y-auto" style="max-height:640px;">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div class="flex items-center gap-2 flex-wrap">${sbadge(sel.status)}${overdueBadge(sel)}</div>
+        <button data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Open Full Record →</button>
+      </div>
+      <h3 class="text-base font-semibold text-gray-900 mb-1">${esc(sel.name)}</h3>
+      <div class="text-sm text-gray-600 mb-4 leading-relaxed">${sel.description?esc(sel.description):'—'}</div>
+      <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs pt-4 border-t border-gray-100">
+        <div><span class="text-gray-400">Status</span><div class="mt-1">${can('editor')?`<select data-act="inline-status" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s=>`<option value="${esc(s)}"${s===sel.status?' selected':''}>${esc(s)}</option>`).join('')}</select>`:sbadge(sel.status)}</div></div>
+        <div><span class="text-gray-400">Assignee</span><div class="mt-1">${can('editor')?`<select data-act="inline-assignee" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[160px]">${assigneeOptionsOnly(sel.assignee)}</select>`:`<span class="text-sm text-gray-700 font-medium">${esc(sel.assignee||'—')}</span>`}</div></div>
+        <div><span class="text-gray-400">Due Date</span><div class="text-sm text-gray-700 font-medium mt-1">${fmtDate(sel.dueDate)}</div></div>
+        <div><span class="text-gray-400">Last Update</span><div class="text-sm text-gray-700 font-medium mt-1">${lu?fmtDate(lu):'<span class="text-amber-600 text-xs font-medium">No updates</span>'}</div></div>
+        <div class="col-span-2"><span class="text-gray-400">Next Action</span><div class="text-sm text-gray-700 font-medium mt-1">${sel.nextAction?esc(sel.nextAction):'—'}</div></div>
+      </div>
+      <div class="mt-5 pt-4 border-t border-gray-100 text-xs text-gray-400">Activity feed &amp; milestones live on the full record — use "Open Full Record →" above.</div>
+    </div>
+  </div>`;
+  })()}
   ${S.bulkIntegMode&&S.bulkIntegCid===c.id?`<div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-xl px-6 py-4 flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
       <div class="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center text-sm font-bold text-rose-700">${S.bulkIntegSelected.size}</div>

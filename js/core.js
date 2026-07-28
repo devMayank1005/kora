@@ -1,7 +1,7 @@
 const KOGNOZ_LOGO="/kognoz_Iogo.png";
 let _bgRefreshTimer=null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
-const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null,authMessage:null};
+const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,selectedIntegId:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null,authMessage:null};
 
 try{S.sidebarCollapsed=localStorage.getItem('itk_sb_collapsed')==='1';}catch(e){}
 try{const r=localStorage.getItem('itk_recent');if(r)S.recentlyViewed=JSON.parse(r);}catch(e){}
@@ -190,7 +190,7 @@ function pathToView(pathname){
 }
 function navigate(view,params={},opts={}){
   const isRealNav=S.view!==view;
-  const go=()=>{S.view=view;S.params=params;S.filter='all';S.search='';S.modal=null;S.sort={key:'name',dir:'asc'};S.editingTimelineId=null;S.expandedHistory=new Set();S.bulkImplMode=false;S.bulkImplCid=null;S.bulkSelected=new Set();S.selectedAmsEntryId=null;recordRecent(view,params);persistView(view,params);
+  const go=()=>{S.view=view;S.params=params;S.filter='all';S.search='';S.modal=null;S.sort={key:'name',dir:'asc'};S.editingTimelineId=null;S.expandedHistory=new Set();S.bulkImplMode=false;S.bulkImplCid=null;S.bulkSelected=new Set();S.selectedAmsEntryId=null;S.selectedIntegId=null;recordRecent(view,params);persistView(view,params);
     if(!opts.fromPopState){
       const path=viewToPath(view,params);
       if(location.pathname!==path)history.pushState({view,params},'',path);
@@ -319,19 +319,30 @@ function showToast(msg,type='success',duration=3500,action=null){
   if(_tt)clearTimeout(_tt);_tt=setTimeout(()=>{const x=document.getElementById('toast');if(x)x.style.display='none';},duration);
 }
 
-// ─── GLOBAL LOADING BAR ───────────────────────────────────────────
+// ─── GLOBAL LOADING BAR + CENTER OVERLAY ──────────────────────────
 let _loadingCount=0;
+let _overlayTimer=null;
+const OVERLAY_DELAY_MS=200; // only show the center blur overlay if the op is still running after this — keeps quick inline edits (status/assignee dropdowns etc.) feeling instant instead of flashing a blur
 function startLoading(){
   _loadingCount++;
-  const b=document.getElementById('loading-bar');if(!b)return;
-  b.style.opacity='1';b.style.width='65%';
+  const b=document.getElementById('loading-bar');if(b){b.style.opacity='1';b.style.width='65%';}
+  if(!_overlayTimer){
+    _overlayTimer=setTimeout(()=>{
+      _overlayTimer=null;
+      if(_loadingCount>0){const o=document.getElementById('loading-overlay');if(o)o.classList.add('visible');}
+    },OVERLAY_DELAY_MS);
+  }
 }
 function stopLoading(){
   _loadingCount=Math.max(0,_loadingCount-1);
-  const b=document.getElementById('loading-bar');if(!b)return;
-  if(_loadingCount===0){
+  const b=document.getElementById('loading-bar');
+  if(b&&_loadingCount===0){
     b.style.width='100%';
     setTimeout(()=>{if(_loadingCount===0){b.style.opacity='0';b.style.width='0%';}},250);
+  }
+  if(_loadingCount===0){
+    if(_overlayTimer){clearTimeout(_overlayTimer);_overlayTimer=null;}
+    const o=document.getElementById('loading-overlay');if(o)o.classList.remove('visible');
   }
 }
 function spinnerSvg(extra=''){return`<svg class="animate-spin h-3.5 w-3.5 ${extra}" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;}
