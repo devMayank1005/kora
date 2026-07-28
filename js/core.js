@@ -375,13 +375,33 @@ async function loadAuditLog(){
   }catch(e){showToast(e.message||'Failed to load audit log','error');}
   finally{S.auditLoading=false;render();}
 }
-async function saveClients(msg){
+async function saveClients(msg,changedIds){
   // Historical note: this used to matter for SHA-conflict resolution back
   // when writes went through the GitHub Contents API. That's long gone —
   // write.js now talks to Supabase directly (last-write-wins per row, no SHA
   // concept at all). The 'sha' field below is vestigial and always just
   // 'supabase'; kept only so the request/response shape didn't need changing.
+  //
+  // Last-write-wins per ROW is fine, but every save today ships this browser
+  // tab's ENTIRE S.clients array — including clients this tab never touched.
+  // If another user saved a change to one of those in the meantime, this
+  // tab's stale copy of it silently overwrites theirs on the next unrelated
+  // save. Passing changedIds narrows a save to just the client(s) actually
+  // changed here: fetch the current server state fresh, splice in only the
+  // locally-changed client(s) on top of it, and save that instead — so an
+  // unrelated save from a stale tab can no longer stomp someone else's edit.
+  // changedIds is optional; omitting it keeps the old full-array behavior.
   try{
+    if(changedIds&&changedIds.length){
+      const fresh=await apiRead('data/clients.json');
+      const freshMap=new Map(fresh.content.map(c=>[c.id,c]));
+      changedIds.forEach(id=>{
+        const local=S.clients.find(c=>c.id===id);
+        if(local)freshMap.set(id,local);else freshMap.delete(id);
+      });
+      S.clients=Array.from(freshMap.values());
+      S.shas.clients=fresh.sha;
+    }
     S.shas.clients=await apiWrite('data/clients.json',S.clients,S.shas.clients,msg||'Update clients');
   }catch(err){
     // Refresh our local SHA so the next save attempt starts clean.

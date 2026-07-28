@@ -776,7 +776,7 @@ document.addEventListener('click',async e=>{
       const snapshot={masterAssignee:c.masterAssignee};
       if(assignee){c.masterAssignee=assignee;}else{delete c.masterAssignee;}
       S.modal={...m,busy:true};render();
-      try{await saveClients(`Edit Implementation client: ${c.name}`);S.modal=null;showToast('Saved ✓');navigate('impl-client-detail',{clientId:c.id});}
+      try{await saveClients(`Edit Implementation client: ${c.name}`,[c.id]);S.modal=null;showToast('Saved ✓');navigate('impl-client-detail',{clientId:c.id});}
       catch(err){if(snapshot.masterAssignee===undefined)delete c.masterAssignee;else c.masterAssignee=snapshot.masterAssignee;S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='add-ams-client'){
       const existingId=document.getElementById('m0')?.value;
@@ -879,7 +879,7 @@ document.addEventListener('change',async e=>{
     const prev=c.masterAssignee;const val=masterAssigneeEl.value;
     if(val){c.masterAssignee=val;}else{delete c.masterAssignee;}
     masterAssigneeEl.disabled=true;
-    try{await saveClients(`Master assignee: ${c.name} → ${val||'Unassigned'}`);showToast(`Master assignee updated ✓`);masterAssigneeEl.disabled=false;}
+    try{await saveClients(`Master assignee: ${c.name} → ${val||'Unassigned'}`,[c.id]);showToast(`Master assignee updated ✓`);masterAssigneeEl.disabled=false;}
     catch(err){if(prev===undefined)delete c.masterAssignee;else c.masterAssignee=prev;showToast('Failed: '+err.message,'error');render();}
     return;
   }

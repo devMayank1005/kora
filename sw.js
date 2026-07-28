@@ -14,7 +14,15 @@ self.addEventListener('install', () => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  // Belt-and-suspenders: this SW never creates a cache, but if an earlier
+  // (buggy or since-reverted) version of this file ever did, those caches
+  // persist in the browser independently of this file being replaced. Wipe
+  // anything left behind so no old cached bundle can ever be served again.
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
