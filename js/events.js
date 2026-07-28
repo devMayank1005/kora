@@ -11,6 +11,7 @@ document.addEventListener('click',async e=>{
     if(!u||!p){if(errEl){errEl.textContent='Enter username and password';errEl.classList.remove('hidden');}return;}
     setBtnBusy(el,'Signing in…');
     if(errEl)errEl.classList.add('hidden');
+    S.authMessage=null;
     let ld;
     try{
       const lr=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});

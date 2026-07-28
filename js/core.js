@@ -1,7 +1,7 @@
 const KOGNOZ_LOGO="/kognoz_Iogo.png";
 let _bgRefreshTimer=null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
-const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null};
+const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null,authMessage:null};
 
 try{S.sidebarCollapsed=localStorage.getItem('itk_sb_collapsed')==='1';}catch(e){}
 try{const r=localStorage.getItem('itk_recent');if(r)S.recentlyViewed=JSON.parse(r);}catch(e){}
@@ -338,10 +338,25 @@ function spinnerSvg(extra=''){return`<svg class="animate-spin h-3.5 w-3.5 ${extr
 function setBtnBusy(el,label){if(!el)return;el.dataset._origHtml=el.innerHTML;el.disabled=true;el.classList.add('btn-busy');el.innerHTML=`<span class="inline-flex items-center justify-center gap-2">${spinnerSvg()}${label||'Working…'}</span>`;}
 function clearBtnBusy(el){if(!el)return;if(el.dataset._origHtml!==undefined){el.innerHTML=el.dataset._origHtml;delete el.dataset._origHtml;}el.disabled=false;el.classList.remove('btn-busy');}
 // ─── API ──────────────────────────────────────────────────────────
+function forceReauth(msg){
+  clearInterval(_bgRefreshTimer);_bgRefreshTimer=null;
+  clearSession();S.user=null;S.sessionToken=null;S.authMessage=msg;
+  render();
+}
+function authMessageFor(reason){
+  if(reason==='expired')return'Your session expired — please sign in again.';
+  if(reason==='revoked')return'Your session was ended (a force-logout was issued) — please sign in again.';
+  return'You were signed out — please sign in again.';
+}
 async function apiRead(path){
   startLoading();
   try{
     const r=await fetch(`/api/read?path=${encodeURIComponent(path)}`,{headers:{'x-session-token':S.sessionToken||''}});
+    if(r.status===401){
+      const d=await r.json().catch(()=>({}));
+      forceReauth(authMessageFor(d.reason));
+      throw new Error('Session ended');
+    }
     if(!r.ok)throw new Error(`Read ${r.status}`);
     const d=await r.json();
     if(d.message&&!d.content)throw new Error(d.message);
@@ -376,7 +391,14 @@ async function backgroundRefreshClients(){
     }
     S.clients=Array.from(freshMap.values());
     S.shas.clients=fresh.sha;
-    render();
+    // Deliberately NOT calling render() here. This app's render() fully
+    // replaces the page's HTML — there is no partial/diffed update. Doing
+    // that on a timer would wipe out anything typed into an open text field
+    // that hasn't been saved yet (integ/phase detail pages have several,
+    // none of them behind a modal). Updating S.clients silently is enough:
+    // the data is current the moment the person's own next action — saving,
+    // navigating, anything — triggers the render that was going to happen
+    // anyway. Nothing forces a redraw out from under them.
   }catch(e){/* a failed background refresh is never worth surfacing to the person */}
 }
 async function apiWrite(path,obj,sha,msg,changedIds){
@@ -384,6 +406,10 @@ async function apiWrite(path,obj,sha,msg,changedIds){
   try{
     const r=await fetch('/api/write',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':S.sessionToken||''},body:JSON.stringify({path,content:JSON.stringify(obj,null,2),sha,message:msg,screen:S.view,changedIds})});
     const d=await r.json().catch(()=>({}));
+    if(r.status===401){
+      forceReauth(authMessageFor(d.reason));
+      throw new Error('Session ended');
+    }
     if(r.status===409&&d.error==='conflict'){
       const err=new Error(`${(d.conflicts||[]).map(c=>c.name).join(', ')||'This'} was updated by someone else just now — your change wasn't saved.`);
       err.isConflict=true;err.conflicts=d.conflicts||[];err.succeeded=d.succeeded||[];

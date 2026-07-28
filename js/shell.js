@@ -289,7 +289,7 @@ function renderLogin(){
             ${pwdToggleBtn('lp')}
           </div>
         </div>
-        <div id="lerr" class="hidden" style="font-size:12px;color:var(--red);background:var(--red-hi);padding:8px 12px;border-radius:var(--radius);text-align:center;"></div>
+        <div id="lerr" class="${S.authMessage?'':'hidden'}" style="font-size:12px;color:var(--red);background:var(--red-hi);padding:8px 12px;border-radius:var(--radius);text-align:center;">${S.authMessage?esc(S.authMessage):''}</div>
         <button data-act="login" class="k-btn k-btn-primary k-btn-lg" style="width:100%;margin-top:4px;">Sign In</button>
       </div>
       <div style="text-align:center;margin-top:24px;font-size:11px;color:var(--mute-2);">
