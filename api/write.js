@@ -39,7 +39,7 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized', reason: check.reason });
   }
 
-  const { path, content, message, screen, confirmBulkDelete } = req.body || {};
+  const { path, content, message, screen, confirmBulkDelete, changedIds } = req.body || {};
   if (!path || content === undefined) {
     return res.status(400).json({ error: 'path and content required' });
   }
@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
       // reachable if every id is provably a plain slug.
       assertIdsDeep(data, 'clients');
 
-      const rows = data.map(c => ({
+      const allRows = data.map(c => ({
         id: c.id,
         name: c.name,
         description: c.description || '',
@@ -97,13 +97,16 @@ module.exports = async function handler(req, res) {
         total_available_hours: c.totalAvailableHours || null,
         currency: c.currency || 'INR',
         master_assignee: c.masterAssignee || null,
+        _v: c._v,
       }));
 
       // H-2 fix: check how many rows currently exist before allowing a
-      // delete-by-omission to remove a large fraction of them.
+      // delete-by-omission to remove a large fraction of them. Unchanged by
+      // the OCC work below — this is always keyed off the FULL client list,
+      // never just the rows changedIds says are actually being written.
       const countRes = await fetch(`${SUPABASE_URL}/rest/v1/clients?select=id`, { headers: sbHeaders });
       const currentIds = countRes.ok ? (await countRes.json()).map(r => r.id) : [];
-      const newIdSet = new Set(rows.map(r => r.id));
+      const newIdSet = new Set(allRows.map(r => r.id));
       const removedCount = currentIds.filter(id => !newIdSet.has(id)).length;
       if (
         currentIds.length > 0 &&
@@ -117,15 +120,59 @@ module.exports = async function handler(req, res) {
         });
       }
 
-      if (rows.length > 0) {
-        const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/clients`, {
-          method: 'POST',
-          headers: sbHeaders,
-          body: JSON.stringify(rows),
-        });
-        if (!upsertRes.ok) {
-          const e = await upsertRes.json().catch(() => ({}));
-          return res.status(upsertRes.status).json({ error: e.message || 'Save failed' });
+      // Optimistic concurrency: changedIds names which rows this save is
+      // actually allowed to touch. Everything else in allRows is here only
+      // for the delete-comparison above and is never written — it's just
+      // this tab's fresh-as-of-load copy, round-tripped, not a real change.
+      // No changedIds at all (a call site that predates this) falls back to
+      // the old unconditional bulk-upsert-everything behavior.
+      const toWrite = Array.isArray(changedIds) && changedIds.length
+        ? allRows.filter(r => changedIds.includes(r.id))
+        : allRows;
+
+      const conflicts = [];
+      const succeeded = [];
+
+      for (const row of toWrite) {
+        const { _v, ...fields } = row;
+        const nowIso = new Date().toISOString();
+        if (_v) {
+          // Existing row — only apply if nobody else changed it since this
+          // tab last read it. The updated_at=eq. filter makes this atomic:
+          // if the row's real current updated_at no longer matches _v, the
+          // WHERE clause matches zero rows and PostgREST returns [].
+          const patchRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/clients?id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(_v)}`,
+            {
+              method: 'PATCH',
+              headers: { ...sbHeaders, Prefer: 'return=representation' },
+              body: JSON.stringify({ ...fields, updated_at: nowIso }),
+            }
+          );
+          if (!patchRes.ok) {
+            const e = await patchRes.json().catch(() => ({}));
+            return res.status(patchRes.status).json({ error: e.message || 'Save failed' });
+          }
+          const patched = await patchRes.json();
+          if (!patched.length) {
+            conflicts.push({ id: row.id, name: row.name });
+          } else {
+            succeeded.push({ id: row.id, updatedAt: patched[0].updated_at });
+          }
+        } else {
+          // No _v at all — this tab never read this row from the server,
+          // meaning it's a brand-new client. Nothing to conflict with yet.
+          const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/clients`, {
+            method: 'POST',
+            headers: { ...sbHeaders, Prefer: 'return=representation,resolution=merge-duplicates' },
+            body: JSON.stringify({ ...fields, updated_at: nowIso }),
+          });
+          if (!insertRes.ok) {
+            const e = await insertRes.json().catch(() => ({}));
+            return res.status(insertRes.status).json({ error: e.message || 'Save failed' });
+          }
+          const inserted = await insertRes.json();
+          succeeded.push({ id: row.id, updatedAt: (inserted[0] && inserted[0].updated_at) || nowIso });
         }
       }
 
@@ -146,13 +193,18 @@ module.exports = async function handler(req, res) {
         );
       }
 
-      await logAudit({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY }, {
-        ...auditBase,
-        action: message || 'Update clients',
-        entity: 'clients',
-      });
+      if (succeeded.length) {
+        await logAudit({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY }, {
+          ...auditBase,
+          action: message || 'Update clients',
+          entity: 'clients',
+        });
+      }
 
-      return res.status(200).json({ sha: 'supabase' });
+      if (conflicts.length) {
+        return res.status(409).json({ error: 'conflict', conflicts, succeeded });
+      }
+      return res.status(200).json({ sha: 'supabase', updated: succeeded });
     }
 
     if (path === 'data/users.json') {
@@ -171,7 +223,16 @@ module.exports = async function handler(req, res) {
       // browser sent — combined with removing passwordHash from read.js's
       // response, this means a hash is never in a browser's memory at all,
       // closing off the "steal an admin session, harvest every hash" chain.
-      const idsNeedingLookup = data.filter(u => !u.password).map(u => u.id);
+      //
+      // Delete-by-omission below is always keyed off the full id set from
+      // `data`, never off toWrite — narrowing that to just the changed
+      // user(s) would make everyone else look deleted.
+      const allIds = data.map(u => u.id);
+      const toProcess = Array.isArray(changedIds) && changedIds.length
+        ? data.filter(u => changedIds.includes(u.id))
+        : data;
+
+      const idsNeedingLookup = toProcess.filter(u => !u.password).map(u => u.id);
       let existingHashes = {};
       if (idsNeedingLookup.length) {
         const idList = idsNeedingLookup.map(id => `"${encodeURIComponent(id)}"`).join(',');
@@ -184,7 +245,7 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      const rows = await Promise.all(data.map(async u => {
+      const toWrite = await Promise.all(toProcess.map(async u => {
         let password_hash;
         if (u.password) {
           assertPassword(u.password); // M-6 fix: enforced here too, not just in the UI/change-password endpoint
@@ -205,37 +266,70 @@ module.exports = async function handler(req, res) {
           role: u.role,
           password_hash,
           created_at: u.createdAt || new Date().toISOString(),
+          _v: u._v,
         };
       }));
 
-      if (rows.length > 0) {
-        const upsertRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
-          method: 'POST',
-          headers: sbHeaders,
-          body: JSON.stringify(rows),
-        });
-        if (!upsertRes.ok) {
-          const e = await upsertRes.json().catch(() => ({}));
-          return res.status(upsertRes.status).json({ error: e.message || 'Save failed' });
+      const conflicts = [];
+      const succeeded = [];
+
+      for (const row of toWrite) {
+        const { _v, ...fields } = row;
+        const nowIso = new Date().toISOString();
+        if (_v) {
+          const patchRes = await fetch(
+            `${SUPABASE_URL}/rest/v1/users?id=eq.${encodeURIComponent(row.id)}&updated_at=eq.${encodeURIComponent(_v)}`,
+            {
+              method: 'PATCH',
+              headers: { ...sbHeaders, Prefer: 'return=representation' },
+              body: JSON.stringify({ ...fields, updated_at: nowIso }),
+            }
+          );
+          if (!patchRes.ok) {
+            const e = await patchRes.json().catch(() => ({}));
+            return res.status(patchRes.status).json({ error: e.message || 'Save failed' });
+          }
+          const patched = await patchRes.json();
+          if (!patched.length) {
+            conflicts.push({ id: row.id, name: row.username });
+          } else {
+            succeeded.push({ id: row.id, updatedAt: patched[0].updated_at });
+          }
+        } else {
+          const insertRes = await fetch(`${SUPABASE_URL}/rest/v1/users`, {
+            method: 'POST',
+            headers: { ...sbHeaders, Prefer: 'return=representation,resolution=merge-duplicates' },
+            body: JSON.stringify({ ...fields, updated_at: nowIso }),
+          });
+          if (!insertRes.ok) {
+            const e = await insertRes.json().catch(() => ({}));
+            return res.status(insertRes.status).json({ error: e.message || 'Save failed' });
+          }
+          const inserted = await insertRes.json();
+          succeeded.push({ id: row.id, updatedAt: (inserted[0] && inserted[0].updated_at) || nowIso });
         }
       }
 
-      const newIds = rows.map(r => r.id);
-      if (newIds.length > 0) {
-        const idList = newIds.map(id => `"${encodeURIComponent(id)}"`).join(',');
+      if (allIds.length > 0) {
+        const idList = allIds.map(id => `"${encodeURIComponent(id)}"`).join(',');
         await fetch(
           `${SUPABASE_URL}/rest/v1/users?id=not.in.(${idList})`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
         );
       }
 
-      await logAudit({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY }, {
-        ...auditBase,
-        action: message || 'Update users',
-        entity: 'users',
-      });
+      if (succeeded.length) {
+        await logAudit({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY }, {
+          ...auditBase,
+          action: message || 'Update users',
+          entity: 'users',
+        });
+      }
 
-      return res.status(200).json({ sha: 'supabase' });
+      if (conflicts.length) {
+        return res.status(409).json({ error: 'conflict', conflicts, succeeded });
+      }
+      return res.status(200).json({ sha: 'supabase', updated: succeeded });
     }
 
     return res.status(404).json({ error: `Unknown path: ${path}` });

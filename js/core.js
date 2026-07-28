@@ -347,12 +347,18 @@ async function apiRead(path){
     return{content:JSON.parse(atob(d.content.replace(/\n/g,''))),sha:d.sha};
   }finally{stopLoading();}
 }
-async function apiWrite(path,obj,sha,msg){
+async function apiWrite(path,obj,sha,msg,changedIds){
   startLoading();
   try{
-    const r=await fetch('/api/write',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':S.sessionToken||''},body:JSON.stringify({path,content:JSON.stringify(obj,null,2),sha,message:msg,screen:S.view})});
-    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||e.message||`Write ${r.status}`);}
-    const d=await r.json();return d.sha||d.content?.sha;
+    const r=await fetch('/api/write',{method:'POST',headers:{'Content-Type':'application/json','x-session-token':S.sessionToken||''},body:JSON.stringify({path,content:JSON.stringify(obj,null,2),sha,message:msg,screen:S.view,changedIds})});
+    const d=await r.json().catch(()=>({}));
+    if(r.status===409&&d.error==='conflict'){
+      const err=new Error(`${(d.conflicts||[]).map(c=>c.name).join(', ')||'This'} was updated by someone else just now — your change wasn't saved.`);
+      err.isConflict=true;err.conflicts=d.conflicts||[];err.succeeded=d.succeeded||[];
+      throw err;
+    }
+    if(!r.ok)throw new Error(d.error||d.message||`Write ${r.status}`);
+    return{sha:d.sha||d.content?.sha,updated:d.updated||[]};
   }finally{stopLoading();}
 }
 async function fetchAuditLog(opts={}){
@@ -378,22 +384,23 @@ async function loadAuditLog(){
 async function saveClients(msg,changedIds){
   // Historical note: this used to matter for SHA-conflict resolution back
   // when writes went through the GitHub Contents API. That's long gone —
-  // write.js now talks to Supabase directly (last-write-wins per row, no SHA
-  // concept at all). The 'sha' field below is vestigial and always just
-  // 'supabase'; kept only so the request/response shape didn't need changing.
+  // write.js now talks to Supabase directly. The 'sha' field is vestigial,
+  // always just 'supabase', kept only so the request/response shape didn't
+  // need changing.
   //
-  // Last-write-wins per ROW is fine, but every save today ships this browser
-  // tab's ENTIRE S.clients array — including clients this tab never touched.
-  // If another user saved a change to one of those in the meantime, this
-  // tab's stale copy of it silently overwrites theirs on the next unrelated
-  // save. Passing changedIds narrows a save to just the client(s) actually
-  // changed here: fetch the current server state fresh, splice in only the
-  // locally-changed client(s) on top of it, and save that instead — so an
-  // unrelated save from a stale tab can no longer stomp someone else's edit.
-  // changedIds is optional; omitting it keeps the old full-array behavior.
+  // changedIds narrows a save to just the client(s) actually touched here —
+  // fetch fresh server state, splice in only the locally-changed one(s), and
+  // work from that instead of this tab's whole (possibly stale) array. On
+  // top of that, write.js now checks each changed client's _v (its
+  // last-known updated_at) against the database at write time: if someone
+  // else changed that exact record since this tab last saw it, the write is
+  // rejected as a real conflict instead of silently overwriting them —
+  // narrowing cross-record risk isn't enough on its own, since two people
+  // can still be editing the very same client at once.
+  let fresh=null;
   try{
     if(changedIds&&changedIds.length){
-      const fresh=await apiRead('data/clients.json');
+      fresh=await apiRead('data/clients.json');
       const freshMap=new Map(fresh.content.map(c=>[c.id,c]));
       changedIds.forEach(id=>{
         const local=S.clients.find(c=>c.id===id);
@@ -402,18 +409,57 @@ async function saveClients(msg,changedIds){
       S.clients=Array.from(freshMap.values());
       S.shas.clients=fresh.sha;
     }
-    S.shas.clients=await apiWrite('data/clients.json',S.clients,S.shas.clients,msg||'Update clients');
+    const result=await apiWrite('data/clients.json',S.clients,S.shas.clients,msg||'Update clients',changedIds);
+    S.shas.clients=result.sha;
+    (result.updated||[]).forEach(u=>{const c=S.clients.find(x=>x.id===u.id);if(c)c._v=u.updatedAt;});
   }catch(err){
-    // Refresh our local SHA so the next save attempt starts clean.
-    try{const cl=await apiRead('data/clients.json');S.shas.clients=cl.sha;}catch(_){}
+    if(err.isConflict&&fresh){
+      // Heal with the fresh copy already fetched moments ago — it's what
+      // actually caused the conflict, so it's the truth to show right now.
+      const freshMap=new Map(fresh.content.map(c=>[c.id,c]));
+      (err.conflicts||[]).forEach(cf=>{
+        const f=freshMap.get(cf.id);if(!f)return;
+        const idx=S.clients.findIndex(x=>x.id===cf.id);
+        if(idx>=0)S.clients[idx]=f;else S.clients.push(f);
+      });
+      // A multi-id save can partially succeed even when one id conflicts —
+      // update those ids' version too, or they'd falsely conflict next time.
+      (err.succeeded||[]).forEach(u=>{const c=S.clients.find(x=>x.id===u.id);if(c)c._v=u.updatedAt;});
+    }else if(!err.isConflict){
+      // Refresh our local SHA so the next save attempt starts clean.
+      try{const cl=await apiRead('data/clients.json');S.shas.clients=cl.sha;}catch(_){}
+    }
     throw err;
   }
 }
-async function saveUsers(msg){
+async function saveUsers(msg,changedIds){
+  let fresh=null;
   try{
-    S.shas.users=await apiWrite('data/users.json',S.users,S.shas.users,msg||'Update users');
+    if(changedIds&&changedIds.length){
+      fresh=await apiRead('data/users.json');
+      const freshMap=new Map(fresh.content.map(u=>[u.id,u]));
+      changedIds.forEach(id=>{
+        const local=S.users.find(u=>u.id===id);
+        if(local)freshMap.set(id,local);else freshMap.delete(id);
+      });
+      S.users=Array.from(freshMap.values());
+      S.shas.users=fresh.sha;
+    }
+    const result=await apiWrite('data/users.json',S.users,S.shas.users,msg||'Update users',changedIds);
+    S.shas.users=result.sha;
+    (result.updated||[]).forEach(u=>{const usr=S.users.find(x=>x.id===u.id);if(usr)usr._v=u.updatedAt;});
   }catch(err){
-    try{const ul=await apiRead('data/users.json');S.shas.users=ul.sha;}catch(_){}
+    if(err.isConflict&&fresh){
+      const freshMap=new Map(fresh.content.map(u=>[u.id,u]));
+      (err.conflicts||[]).forEach(cf=>{
+        const f=freshMap.get(cf.id);if(!f)return;
+        const idx=S.users.findIndex(x=>x.id===cf.id);
+        if(idx>=0)S.users[idx]=f;else S.users.push(f);
+      });
+      (err.succeeded||[]).forEach(u=>{const usr=S.users.find(x=>x.id===u.id);if(usr)usr._v=u.updatedAt;});
+    }else if(!err.isConflict){
+      try{const ul=await apiRead('data/users.json');S.shas.users=ul.sha;}catch(_){}
+    }
     throw err;
   }
 }

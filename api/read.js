@@ -55,6 +55,7 @@ module.exports = async function handler(req, res) {
         if (row.total_available_hours !== null) c.totalAvailableHours = row.total_available_hours;
         if (row.currency) c.currency = row.currency;
         if (row.master_assignee) c.masterAssignee = row.master_assignee;
+        c._v = row.updated_at;
         return c;
       });
 
@@ -92,6 +93,7 @@ module.exports = async function handler(req, res) {
         lockedUntil: row.locked_until,
         failedAttempts: row.failed_attempts || 0,
         lockoutLevel: row.lockout_level || 0,
+        _v: row.updated_at,
       } : {
         id: row.id,
         username: row.username,

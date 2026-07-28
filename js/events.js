@@ -93,7 +93,7 @@ document.addEventListener('click',async e=>{
     const entry={id:uid(),date:todayStr(),update:'Marked as Completed.',addedBy:S.user.name,addedAt:new Date().toISOString()};
     i.timeline.unshift(entry);
     setBtnBusy(el,'Saving…');
-    try{await saveClients(`Complete: ${i.name}`);showToast('Marked complete ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
+    try{await saveClients(`Complete: ${i.name}`,[cid]);showToast('Marked complete ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
     catch(err){i.status=prevStatus;i.timeline.shift();showToast('Failed: '+err.message,'error');render();}
     return;
   }
@@ -108,7 +108,7 @@ document.addEventListener('click',async e=>{
     i.description=document.getElementById('f-desc')?.value?.trim()||'';
     i.nextAction=document.getElementById('f-next')?.value?.trim()||'';
     setBtnBusy(el,'Saving…');
-    try{await saveClients(`Update ${i.name}`);showToast('Saved ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
+    try{await saveClients(`Update ${i.name}`,[cid]);showToast('Saved ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
     catch(err){Object.assign(i,prev);showToast('Save failed: '+err.message,'error');clearBtnBusy(el);}
     return;
   }
@@ -120,7 +120,7 @@ document.addEventListener('click',async e=>{
     const c=S.clients.find(x=>x.id===cid);const i=c?.integrations.find(x=>x.id===iid);if(!i)return;
     const entry={id:uid(),date:todayStr(),update:text,addedBy:S.user.name,addedAt:new Date().toISOString()};
     i.timeline.unshift(entry);setBtnBusy(el,'Saving…');
-    try{await saveClients(`Timeline: ${i.name}`);showToast('Update added ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
+    try{await saveClients(`Timeline: ${i.name}`,[cid]);showToast('Update added ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
     catch(err){i.timeline.shift();showToast('Failed: '+err.message,'error');clearBtnBusy(el);}
     return;
   }
@@ -137,7 +137,7 @@ document.addEventListener('click',async e=>{
     const updated={...original,edits:[...(original.edits||[]),{text:original.update,editedAt:new Date().toISOString(),editedBy:S.user.name}],update:newText,lastEditedAt:new Date().toISOString(),lastEditedBy:S.user.name};
     i.timeline[idx]=updated;
     setBtnBusy(el,'Saving…');
-    try{await saveClients(`Edit timeline: ${i.name}`);S.editingTimelineId=null;showToast('Update edited ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
+    try{await saveClients(`Edit timeline: ${i.name}`,[cid]);S.editingTimelineId=null;showToast('Update edited ✓');navigate('integ-detail',{clientId:cid,integId:iid});}
     catch(err){i.timeline[idx]=snapshot;showToast('Failed: '+err.message,'error');clearBtnBusy(el);}
     return;
   }
@@ -166,7 +166,7 @@ document.addEventListener('click',async e=>{
     }
     if(idx>=0)mod.phases[idx]=ph;else mod.phases.push(ph);
     setBtnBusy(el,'Saving…');
-    try{await saveClients(`Update ${phaseName}: ${mod.name}`);showToast('Saved ✓');navigate('impl-phase-detail',{clientId:cid,moduleId:mid,phase:phaseName});}
+    try{await saveClients(`Update ${phaseName}: ${mod.name}`,[cid]);showToast('Saved ✓');navigate('impl-phase-detail',{clientId:cid,moduleId:mid,phase:phaseName});}
     catch(err){if(idx>=0)mod.phases[idx]=prev;else mod.phases.pop();showToast('Save failed: '+err.message,'error');clearBtnBusy(el);}
     return;
   }
@@ -185,7 +185,7 @@ document.addEventListener('click',async e=>{
     const attachment=attachUrl?{label:attachLabel||attachName||'Attachment',url:attachUrl,fileName:attachName||attachLabel||'Attachment',mimeType:attachMime}:undefined;
     const entry={id:uid(),date:todayStr(),update:text,addedBy:S.user.name,addedAt:new Date().toISOString(),...(attachment?{attachment}:{})};
     ph.updates.unshift(entry);setBtnBusy(el,'Saving…');
-    try{await saveClients(`Update ${phaseName}: ${mod.name}`);showToast('Update added ✓');navigate('impl-phase-detail',{clientId:cid,moduleId:mid,phase:phaseName});}
+    try{await saveClients(`Update ${phaseName}: ${mod.name}`,[cid]);showToast('Update added ✓');navigate('impl-phase-detail',{clientId:cid,moduleId:mid,phase:phaseName});}
     catch(err){ph.updates.shift();showToast('Failed: '+err.message,'error');clearBtnBusy(el);}
     return;
   }
@@ -208,7 +208,7 @@ document.addEventListener('click',async e=>{
     const updated={...original,...(attachment!==undefined?{attachment}:{attachment:original.attachment}),
       ...(textChanged?{edits:[...(original.edits||[]),{text:original.update,editedAt:new Date().toISOString(),editedBy:S.user.name}],update:newText,lastEditedAt:new Date().toISOString(),lastEditedBy:S.user.name}:{})};
     ph.updates[idx]=updated;setBtnBusy(el,'Saving…');
-    try{await saveClients(`Edit update: ${phaseName}, ${mod.name}`);S.editingTimelineId=null;showToast('Update saved ✓');navigate('impl-phase-detail',{clientId:cid,moduleId:mid,phase:phaseName});}
+    try{await saveClients(`Edit update: ${phaseName}, ${mod.name}`,[cid]);S.editingTimelineId=null;showToast('Update saved ✓');navigate('impl-phase-detail',{clientId:cid,moduleId:mid,phase:phaseName});}
     catch(err){ph.updates[idx]=snapshot;showToast('Failed: '+err.message,'error');clearBtnBusy(el);}
     return;
   }
@@ -323,7 +323,7 @@ document.addEventListener('click',async e=>{
     c.integrations=c.integrations.filter(i=>!ids.has(i.id));
     setBtnBusy(el,'Deleting…');
     try{
-      await saveClients(`Bulk delete ${ids.size} integration${ids.size!==1?'s':''}: ${c.name}`);
+      await saveClients(`Bulk delete ${ids.size} integration${ids.size!==1?'s':''}: ${c.name}`,[cid]);
       S.bulkIntegMode=false;S.bulkIntegCid=null;S.bulkIntegSelected=new Set();
       showToast(`${ids.size} integration${ids.size!==1?'s':''} deleted ✓`);
       navigate('client-detail',{clientId:cid});
@@ -366,7 +366,7 @@ document.addEventListener('click',async e=>{
     });
     setBtnBusy(el,`Saving…`);
     try{
-      await saveClients(`Bulk complete: ${changed.length} phases — ${c.name}`);
+      await saveClients(`Bulk complete: ${changed.length} phases — ${c.name}`,[cid]);
       S.bulkImplMode=false;S.bulkImplCid=null;S.bulkSelected=new Set();
       showToast(`${changed.length} phase${changed.length===1?'':'s'} marked complete ✓`);
       navigate('impl-client-detail',{clientId:cid});
@@ -490,7 +490,7 @@ document.addEventListener('click',async e=>{
         const c=S.clients[idx];const other=c.modules!==undefined||c.workLog!==undefined;
         const snapshot=JSON.parse(JSON.stringify(c));
         if(other){c.integrations=[];}else{S.clients.splice(idx,1);}
-        try{await saveClients(`Remove Integration data: ${snapshot.name}`);S.modal=null;showToast(`${snapshot.name} removed from Integrations`);render();}
+        try{await saveClients(`Remove Integration data: ${snapshot.name}`,[m._id]);S.modal=null;showToast(`${snapshot.name} removed from Integrations`);render();}
         catch(err){if(other){c.integrations=snapshot.integrations;}else{S.clients.splice(idx,0,snapshot);}S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-integ'){
@@ -498,16 +498,16 @@ document.addEventListener('click',async e=>{
         const idx=c.integrations.findIndex(x=>x.id===m._iid);if(idx<0){S.modal=null;render();return;}
         const[rem]=c.integrations.splice(idx,1);
         S.modal=null;navigate('client-detail',{clientId:m._cid});
-        scheduleUndo(`"${rem.name}" deleted`,async()=>{c.integrations.splice(idx,0,rem);await saveClients(`Restore ${rem.name}`);navigate('client-detail',{clientId:m._cid});});
-        try{await saveClients(`Delete ${rem.name}`);}
+        scheduleUndo(`"${rem.name}" deleted`,async()=>{c.integrations.splice(idx,0,rem);await saveClients(`Restore ${rem.name}`,[m._cid]);navigate('client-detail',{clientId:m._cid});});
+        try{await saveClients(`Delete ${rem.name}`,[m._cid]);}
         catch(err){c.integrations.splice(idx,0,rem);showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-user'){
         const idx=S.users.findIndex(x=>x.id===m._uid);if(idx<0){S.modal=null;render();return;}
         const[rem]=S.users.splice(idx,1);
         S.modal=null;render();
-        scheduleUndo(`${rem.name} removed`,async()=>{S.users.splice(idx,0,rem);await saveUsers(`Restore ${rem.username}`);render();});
-        try{await saveUsers(`Delete ${rem.username}`);}
+        scheduleUndo(`${rem.name} removed`,async()=>{S.users.splice(idx,0,rem);await saveUsers(`Restore ${rem.username}`,[m._uid]);render();});
+        try{await saveUsers(`Delete ${rem.username}`,[m._uid]);}
         catch(err){S.users.splice(idx,0,rem);showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='force-logout-all'){
@@ -541,7 +541,7 @@ document.addEventListener('click',async e=>{
         const c=S.clients[idx];const other=c.integrations.length>0||c.workLog!==undefined;
         const snapshot=JSON.parse(JSON.stringify(c));
         if(other){delete c.modules;}else{S.clients.splice(idx,1);}
-        try{await saveClients(`Remove Implementation data: ${snapshot.name}`);S.modal=null;showToast(`${snapshot.name} removed from Implementations`);render();}
+        try{await saveClients(`Remove Implementation data: ${snapshot.name}`,[m._id]);S.modal=null;showToast(`${snapshot.name} removed from Implementations`);render();}
         catch(err){if(other){c.modules=snapshot.modules;}else{S.clients.splice(idx,0,snapshot);}S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-ams-client'){
@@ -549,7 +549,7 @@ document.addEventListener('click',async e=>{
         const c=S.clients[idx];const other=c.integrations.length>0||c.modules!==undefined;
         const snapshot=JSON.parse(JSON.stringify(c));
         if(other){delete c.manDayRate;delete c.workLog;}else{S.clients.splice(idx,1);}
-        try{await saveClients(`Remove AMS data: ${snapshot.name}`);S.modal=null;showToast(`${snapshot.name} removed from AMS`);navigate('ams-clients');}
+        try{await saveClients(`Remove AMS data: ${snapshot.name}`,[m._id]);S.modal=null;showToast(`${snapshot.name} removed from AMS`);navigate('ams-clients');}
         catch(err){if(other){c.manDayRate=snapshot.manDayRate;c.workLog=snapshot.workLog;}else{S.clients.splice(idx,0,snapshot);}S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-impl-module'){
@@ -557,15 +557,15 @@ document.addEventListener('click',async e=>{
         const idx=(c.modules||[]).findIndex(x=>x.id===m._mid);if(idx<0){S.modal=null;render();return;}
         const[rem]=c.modules.splice(idx,1);
         S.modal=null;navigate('impl-client-detail',{clientId:m._cid});
-        scheduleUndo(`Module "${rem.name}" deleted`,async()=>{c.modules.splice(idx,0,rem);await saveClients(`Restore ${rem.name}`);navigate('impl-client-detail',{clientId:m._cid});});
-        try{await saveClients(`Delete module: ${rem.name}`);}
+        scheduleUndo(`Module "${rem.name}" deleted`,async()=>{c.modules.splice(idx,0,rem);await saveClients(`Restore ${rem.name}`,[m._cid]);navigate('impl-client-detail',{clientId:m._cid});});
+        try{await saveClients(`Delete module: ${rem.name}`,[m._cid]);}
         catch(err){c.modules.splice(idx,0,rem);showToast('Failed: '+err.message,'error');navigate('impl-client-detail',{clientId:m._cid});}
       }
       else if(m._act==='delete-timeline-entry'){
         const c=S.clients.find(x=>x.id===m._cid);const i=c?.integrations.find(x=>x.id===m._iid);if(!i){S.modal=null;render();return;}
         const idx=i.timeline.findIndex(x=>x.id===m._tid);if(idx<0){S.modal=null;render();return;}
         const[rem]=i.timeline.splice(idx,1);
-        try{await saveClients(`Delete update: ${i.name}`);S.modal=null;showToast('Update deleted');navigate('integ-detail',{clientId:m._cid,integId:m._iid});}
+        try{await saveClients(`Delete update: ${i.name}`,[m._cid]);S.modal=null;showToast('Update deleted');navigate('integ-detail',{clientId:m._cid,integId:m._iid});}
         catch(err){i.timeline.splice(idx,0,rem);S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-impl-update'){
@@ -573,21 +573,21 @@ document.addEventListener('click',async e=>{
         const ph=mod.phases?.find(x=>x.name===m._phase);if(!ph||!ph.updates){S.modal=null;render();return;}
         const idx=ph.updates.findIndex(x=>x.id===m._tid);if(idx<0){S.modal=null;render();return;}
         const[rem]=ph.updates.splice(idx,1);
-        try{await saveClients(`Delete update: ${m._phase}`);S.modal=null;showToast('Update deleted');navigate('impl-phase-detail',{clientId:m._cid,moduleId:m._mid,phase:m._phase});}
+        try{await saveClients(`Delete update: ${m._phase}`,[m._cid]);S.modal=null;showToast('Update deleted');navigate('impl-phase-detail',{clientId:m._cid,moduleId:m._mid,phase:m._phase});}
         catch(err){ph.updates.splice(idx,0,rem);S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-ams-entry'){
         const c=S.clients.find(x=>x.id===m._cid);if(!c||!c.workLog){S.modal=null;render();return;}
         const idx=c.workLog.findIndex(x=>x.id===m._eid);if(idx<0){S.modal=null;render();return;}
         const[rem]=c.workLog.splice(idx,1);
-        try{await saveClients(`Delete entry: ${c.name}`);S.modal=null;showToast('Entry deleted');navigate('ams-client-detail',{clientId:m._cid});}
+        try{await saveClients(`Delete entry: ${c.name}`,[m._cid]);S.modal=null;showToast('Entry deleted');navigate('ams-client-detail',{clientId:m._cid});}
         catch(err){c.workLog.splice(idx,0,rem);S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
       else if(m._act==='delete-milestone'){
         const c=S.clients.find(x=>x.id===m._cid);const i=c?.integrations.find(x=>x.id===m._iid);if(!i){S.modal=null;render();return;}
         const idx=(i.milestones||[]).findIndex(x=>x.id===m._mid);if(idx<0){S.modal=null;render();return;}
         const[rem]=(i.milestones||[]).splice(idx,1);
-        try{await saveClients(`Delete milestone: ${rem.name}`);S.modal=null;showToast('Milestone deleted');navigate('integ-detail',{clientId:m._cid,integId:m._iid});}
+        try{await saveClients(`Delete milestone: ${rem.name}`,[m._cid]);S.modal=null;showToast('Milestone deleted');navigate('integ-detail',{clientId:m._cid,integId:m._iid});}
         catch(err){i.milestones.splice(idx,0,rem);S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
     } else if(m.type==='add-milestone'||m.type==='edit-milestone'){
@@ -600,7 +600,7 @@ document.addEventListener('click',async e=>{
         const idx=i.milestones.findIndex(x=>x.id===m.mid);if(idx>=0)i.milestones[idx]=msObj;
       }else{i.milestones.push(msObj);}
       S.modal={...m,busy:true};render();
-      try{await saveClients(`${m.type==='edit-milestone'?'Edit':'Add'} milestone: ${name}`);S.modal=null;showToast(`Milestone ${m.type==='edit-milestone'?'updated':'added'} ✓`);navigate('integ-detail',{clientId:m.cid,integId:m.iid});}
+      try{await saveClients(`${m.type==='edit-milestone'?'Edit':'Add'} milestone: ${name}`,[m.cid]);S.modal=null;showToast(`Milestone ${m.type==='edit-milestone'?'updated':'added'} ✓`);navigate('integ-detail',{clientId:m.cid,integId:m.iid});}
       catch(err){if(m.type==='add-milestone')i.milestones.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='import-ams-entries'){
       const valid=(m.csvRows||[]).filter(r=>!r.error);
@@ -610,7 +610,7 @@ document.addEventListener('click',async e=>{
       const prev=JSON.parse(JSON.stringify(c.workLog));
       const newEntries=valid.map(r=>({id:uid(),...r,loggedAt:new Date().toISOString()}));
       c.workLog.push(...newEntries);S.modal={...m,busy:true};render();
-      try{await saveClients(`Import ${newEntries.length} AMS entries: ${c.name}`);S.modal=null;showToast(`${newEntries.length} entr${newEntries.length===1?'y':'ies'} imported ✓`);navigate('ams-client-detail',{clientId:m.cid});}
+      try{await saveClients(`Import ${newEntries.length} AMS entries: ${c.name}`,[m.cid]);S.modal=null;showToast(`${newEntries.length} entr${newEntries.length===1?'y':'ies'} imported ✓`);navigate('ams-client-detail',{clientId:m.cid});}
       catch(err){c.workLog=prev;S.modal=null;showToast('Import failed: '+err.message,'error');render();}
     } else if(m.type==='import-integrations'){
       const valid=(m.csvRows||[]).filter(r=>!r.error);
@@ -619,7 +619,7 @@ document.addEventListener('click',async e=>{
       const prev=JSON.parse(JSON.stringify(c.integrations));
       const newIntegs=valid.map(r=>({id:uid(),name:r.name,status:r.status,assignee:r.assignee,dueDate:r.dueDate,description:r.description,nextAction:r.nextAction,timeline:[],createdAt:new Date().toISOString()}));
       c.integrations.push(...newIntegs);S.modal={...m,busy:true};render();
-      try{await saveClients(`Import ${newIntegs.length} integrations: ${c.name}`);S.modal=null;showToast(`${newIntegs.length} integration${newIntegs.length===1?'':'s'} imported ✓`);navigate('client-detail',{clientId:m.cid});}
+      try{await saveClients(`Import ${newIntegs.length} integrations: ${c.name}`,[m.cid]);S.modal=null;showToast(`${newIntegs.length} integration${newIntegs.length===1?'':'s'} imported ✓`);navigate('client-detail',{clientId:m.cid});}
       catch(err){c.integrations=prev;S.modal=null;showToast('Import failed: '+err.message,'error');render();}
     } else if(m.type==='portfolio-export'){
       const selected=[...document.querySelectorAll('[data-act="portfolio-client-toggle"]:checked')].map(el=>el.dataset.cid);
@@ -634,7 +634,7 @@ document.addEventListener('click',async e=>{
       if(S.clients.find(x=>x.name.toLowerCase()===name.toLowerCase())){showToast(`"${name}" already exists as a client`,'error');return;}
       const nc={id:uid(),name,description:desc||'',createdAt:new Date().toISOString(),integrations:[]};
       S.clients.push(nc);S.modal={...m,busy:true};render();
-      try{await saveClients(`Add ${name}`);S.modal=null;showToast(`${name} added`);render();}
+      try{await saveClients(`Add ${name}`,[nc.id]);S.modal=null;showToast(`${name} added`);render();}
       catch(err){S.clients.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='add-integ'){
       const cid=document.getElementById('m0')?.value,name=document.getElementById('m1')?.value.trim();
@@ -642,7 +642,7 @@ document.addEventListener('click',async e=>{
       const c=S.clients.find(x=>x.id===cid);if(!c)return;
       const ni={id:uid(),name,status:document.getElementById('m2')?.value||'Not Started',assignee:document.getElementById('m3')?.value.trim()||'',dueDate:document.getElementById('m4')?.value||'',description:document.getElementById('m5')?.value.trim()||'',nextAction:'',timeline:[]};
       c.integrations.push(ni);S.modal={...m,busy:true};render();
-      try{await saveClients(`Add ${name} to ${c.name}`);S.modal=null;showToast(`${name} added`);render();}
+      try{await saveClients(`Add ${name} to ${c.name}`,[cid]);S.modal=null;showToast(`${name} added`);render();}
       catch(err){c.integrations.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='my-profile'){
       const currPass=document.getElementById('pr-curr')?.value;
@@ -671,7 +671,7 @@ document.addEventListener('click',async e=>{
       S.modal={...m,busy:true};render();
       // Set passwords for all recipients — sent plaintext, hashed server-side (bcrypt)
       targets.forEach(t=>{const u=S.users.find(x=>x.id===t.id);if(u){u.password=pass;delete u.passwordHash;}});
-      try{await saveUsers('Set passwords for welcome email');targets.forEach(t=>{const u=S.users.find(x=>x.id===t.id);if(u)delete u.password;});}catch(e){targets.forEach(t=>{const u=S.users.find(x=>x.id===t.id);if(u)delete u.password;});S.modal=null;showToast('Failed to update passwords','error');render();return;}
+      try{await saveUsers('Set passwords for welcome email',targets.map(t=>t.id));targets.forEach(t=>{const u=S.users.find(x=>x.id===t.id);if(u)delete u.password;});}catch(e){targets.forEach(t=>{const u=S.users.find(x=>x.id===t.id);if(u)delete u.password;});S.modal=null;showToast('Failed to update passwords','error');render();return;}
       // Send emails
       let sent=0,failed=0;
       await Promise.all(targets.map(async t=>{
@@ -695,7 +695,7 @@ document.addEventListener('click',async e=>{
       S.modal={...m,busy:true};render();
       if(newPass){u.password=newPass;delete u.passwordHash;}
       try{
-        await saveUsers(`Edit user: ${u.username}`);
+        await saveUsers(`Edit user: ${u.username}`,[m.uid]);
         delete u.password;
         // refresh dropdown with updated name
         S.usersForDropdown=S.users.map(x=>({id:x.id,name:x.name||x.username,role:x.role,username:x.username}));
@@ -709,7 +709,7 @@ document.addEventListener('click',async e=>{
       if(S.users.find(x=>x.username===username)){showToast('Username taken','error');return;}
       S.modal={...m,busy:true};render();
       const nu={id:uid(),username,name,email,password,role};S.users.push(nu);
-      try{await saveUsers(`Add ${username}`);delete nu.password;S.usersForDropdown=S.users.map(u=>({id:u.id,name:u.name||u.username,role:u.role,username:u.username}));S.modal=null;showToast(`${name} added`);render();}
+      try{await saveUsers(`Add ${username}`,[nu.id]);delete nu.password;S.usersForDropdown=S.users.map(u=>({id:u.id,name:u.name||u.username,role:u.role,username:u.username}));S.modal=null;showToast(`${name} added`);render();}
       catch(err){S.users.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='bulk-import-users'){
       const valid=(m.csvRows||[]).filter(r=>!r.error);
@@ -718,14 +718,14 @@ document.addEventListener('click',async e=>{
       const newUsers=valid.map(r=>({id:uid(),username:r.username,name:r.name,email:r.email||'',password:r.password,role:r.role}));
       const prev=JSON.parse(JSON.stringify(S.users));
       S.users=[...S.users,...newUsers];
-      try{await saveUsers(`Bulk import ${newUsers.length} users`);newUsers.forEach(u=>delete u.password);S.usersForDropdown=S.users.map(u=>({id:u.id,name:u.name||u.username,role:u.role,username:u.username}));S.modal=null;showToast(`${newUsers.length} user${newUsers.length!==1?'s':''} imported ✓`);render();}
+      try{await saveUsers(`Bulk import ${newUsers.length} users`,newUsers.map(u=>u.id));newUsers.forEach(u=>delete u.password);S.usersForDropdown=S.users.map(u=>({id:u.id,name:u.name||u.username,role:u.role,username:u.username}));S.modal=null;showToast(`${newUsers.length} user${newUsers.length!==1?'s':''} imported ✓`);render();}
       catch(err){S.users=prev;S.modal=null;showToast('Import failed: '+err.message,'error');render();}
     } else if(m.type==='rename-client'){
       const c=S.clients.find(x=>x.id===m.cid);if(!c)return;
       const name=document.getElementById('m1')?.value.trim();
       if(!name){showToast('Name required','error');return;}
       const prev=c.name;c.name=name;S.modal={...m,busy:true};render();
-      try{await saveClients(`Rename client: ${prev} → ${name}`);S.modal=null;showToast('Client renamed ✓');render();}
+      try{await saveClients(`Rename client: ${prev} → ${name}`,[m.cid]);S.modal=null;showToast('Client renamed ✓');render();}
       catch(err){c.name=prev;S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='rename-integrations'){
       const c=S.clients.find(x=>x.id===m.cid);if(!c)return;
@@ -734,7 +734,7 @@ document.addEventListener('click',async e=>{
       c.integrations.forEach(i=>{const v=document.getElementById(`ri-${i.id}`)?.value.trim();if(v&&v!==i.name){i.name=v;changed++;}});
       if(!changed){S.modal=null;render();return;}
       S.modal={...m,busy:true};render();
-      try{await saveClients(`Rename ${changed} integration${changed!==1?'s':''}: ${c.name}`);S.modal=null;showToast('Integrations renamed ✓');render();}
+      try{await saveClients(`Rename ${changed} integration${changed!==1?'s':''}: ${c.name}`,[m.cid]);S.modal=null;showToast('Integrations renamed ✓');render();}
       catch(err){c.integrations=prev;S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='rename-modules'){
       const c=S.clients.find(x=>x.id===m.cid);if(!c)return;
@@ -743,14 +743,14 @@ document.addEventListener('click',async e=>{
       (c.modules||[]).forEach(mod=>{const v=document.getElementById(`rm-${mod.id}`)?.value.trim();if(v&&v!==mod.name){mod.name=v;changed++;}});
       if(!changed){S.modal=null;render();return;}
       S.modal={...m,busy:true};render();
-      try{await saveClients(`Rename ${changed} module${changed!==1?'s':''}: ${c.name}`);S.modal=null;showToast('Modules renamed ✓');render();}
+      try{await saveClients(`Rename ${changed} module${changed!==1?'s':''}: ${c.name}`,[m.cid]);S.modal=null;showToast('Modules renamed ✓');render();}
       catch(err){c.modules=prev;S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='add-impl-client'){
       const existingId=document.getElementById('m0')?.value;
       if(existingId){
         const c=S.clients.find(x=>x.id===existingId);if(!c)return;
         c.modules=[];S.modal={...m,busy:true};render();
-        try{await saveClients(`Enable Implementation tracking: ${c.name}`);S.modal=null;showToast(`${c.name} added to Implementations`);render();}
+        try{await saveClients(`Enable Implementation tracking: ${c.name}`,[existingId]);S.modal=null;showToast(`${c.name} added to Implementations`);render();}
         catch(err){delete c.modules;S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }else{
         const name=document.getElementById('m1')?.value.trim();
@@ -759,7 +759,7 @@ document.addEventListener('click',async e=>{
         const desc=document.getElementById('m2')?.value.trim();
         const nc={id:uid(),name,description:desc||'',createdAt:new Date().toISOString(),integrations:[],modules:[]};
         S.clients.push(nc);S.modal={...m,busy:true};render();
-        try{await saveClients(`Add ${name}`);S.modal=null;showToast(`${name} added`);render();}
+        try{await saveClients(`Add ${name}`,[nc.id]);S.modal=null;showToast(`${name} added`);render();}
         catch(err){S.clients.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
     } else if(m.type==='add-impl-module'){
@@ -768,7 +768,7 @@ document.addEventListener('click',async e=>{
       const c=S.clients.find(x=>x.id===m.cid);if(!c)return;
       const nm={id:uid(),name,phases:PHASES.map(ph=>({name:ph,status:'Not Started',startDate:'',targetDate:'',updates:[]}))};
       if(!c.modules)c.modules=[];c.modules.push(nm);S.modal={...m,busy:true};render();
-      try{await saveClients(`Add module ${name}`);S.modal=null;showToast(`${name} added`);navigate('impl-client-detail',{clientId:c.id});}
+      try{await saveClients(`Add module ${name}`,[c.id]);S.modal=null;showToast(`${name} added`);navigate('impl-client-detail',{clientId:c.id});}
       catch(err){c.modules.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='edit-impl-client'){
       const c=S.clients.find(x=>x.id===m.cid);if(!c)return;
@@ -789,7 +789,7 @@ document.addEventListener('click',async e=>{
         const c=S.clients.find(x=>x.id===existingId);if(!c)return;
         if(rate)c.manDayRate=rate;c.workLog=c.workLog||[];c.currency=currency;if(avail!==undefined)c.totalAvailableHours=avail;
         S.modal={...m,busy:true};render();
-        try{await saveClients(`Enable AMS: ${c.name}`);S.modal=null;showToast(`${c.name} added to AMS`);render();}
+        try{await saveClients(`Enable AMS: ${c.name}`,[existingId]);S.modal=null;showToast(`${c.name} added to AMS`);render();}
         catch(err){delete c.manDayRate;delete c.totalAvailableHours;S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }else{
         const name=document.getElementById('m1')?.value.trim();
@@ -799,7 +799,7 @@ document.addEventListener('click',async e=>{
         const nc={id:uid(),name,description:desc||'',createdAt:new Date().toISOString(),integrations:[],workLog:[],currency};
         if(rate)nc.manDayRate=rate;if(avail!==undefined)nc.totalAvailableHours=avail;
         S.clients.push(nc);S.modal={...m,busy:true};render();
-        try{await saveClients(`Add ${name}`);S.modal=null;showToast(`${name} added`);render();}
+        try{await saveClients(`Add ${name}`,[nc.id]);S.modal=null;showToast(`${name} added`);render();}
         catch(err){S.clients.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
     } else if(m.type==='edit-ams-client'){
@@ -813,7 +813,7 @@ document.addEventListener('click',async e=>{
       if(rateRaw){c.manDayRate=parseFloat(rateRaw);}else{delete c.manDayRate;}
       if(availRaw){c.totalAvailableHours=parseFloat(availRaw);}else{delete c.totalAvailableHours;}
       S.modal={...m,busy:true};render();
-      try{await saveClients(`Edit AMS client: ${c.name}`);S.modal=null;showToast('Saved ✓');navigate('ams-client-detail',{clientId:c.id});}
+      try{await saveClients(`Edit AMS client: ${c.name}`,[c.id]);S.modal=null;showToast('Saved ✓');navigate('ams-client-detail',{clientId:c.id});}
       catch(err){Object.assign(c,snapshot);if(snapshot.totalAvailableHours===undefined)delete c.totalAvailableHours;if(snapshot.manDayRate===undefined)delete c.manDayRate;S.modal=null;showToast('Failed: '+err.message,'error');render();}
     } else if(m.type==='add-ams-entry'||m.type==='edit-ams-entry'){
       if(!can('edit'))return;
@@ -839,7 +839,7 @@ document.addEventListener('click',async e=>{
       if(m.type==='add-ams-entry'){
         const entry={id:uid(),...fields,loggedAt:new Date().toISOString()};
         c.workLog.push(entry);S.modal={...m,busy:true};render();
-        try{await saveClients(`Add entry: ${c.name}`);S.modal=null;showToast('Entry added ✓');navigate('ams-client-detail',{clientId:cid});}
+        try{await saveClients(`Add entry: ${c.name}`,[cid]);S.modal=null;showToast('Entry added ✓');navigate('ams-client-detail',{clientId:cid});}
         catch(err){c.workLog.pop();S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }else{
         const idx=c.workLog.findIndex(x=>x.id===m.eid);if(idx<0)return;
@@ -847,7 +847,7 @@ document.addEventListener('click',async e=>{
         const snapshot=JSON.parse(JSON.stringify(original));
         const updated={...original,...fields,edits:[...(original.edits||[]),{description:original.description,hours:original.hours,dateRaised:entryDate(original),editedAt:new Date().toISOString(),editedBy:S.user.name}],lastEditedAt:new Date().toISOString(),lastEditedBy:S.user.name};
         c.workLog[idx]=updated;S.modal={...m,busy:true};render();
-        try{await saveClients(`Edit entry: ${c.name}`);S.modal=null;showToast('Entry updated ✓');navigate('ams-client-detail',{clientId:cid});}
+        try{await saveClients(`Edit entry: ${c.name}`,[cid]);S.modal=null;showToast('Entry updated ✓');navigate('ams-client-detail',{clientId:cid});}
         catch(err){c.workLog[idx]=snapshot;S.modal=null;showToast('Failed: '+err.message,'error');render();}
       }
     }
@@ -860,7 +860,7 @@ document.addEventListener('change',async e=>{
     const c=S.clients.find(x=>x.id===statusEl.dataset.cid);if(!c)return;
     const i=c.integrations.find(x=>x.id===statusEl.dataset.iid);if(!i)return;
     const prev=i.status;i.status=statusEl.value;statusEl.disabled=true;
-    try{await saveClients(`Status: ${i.name} → ${i.status}`);showToast(`${i.name} → ${i.status}`);statusEl.disabled=false;}
+    try{await saveClients(`Status: ${i.name} → ${i.status}`,[c.id]);showToast(`${i.name} → ${i.status}`);statusEl.disabled=false;}
     catch(err){i.status=prev;showToast('Failed: '+err.message,'error');render();}
     return;
   }
@@ -869,7 +869,7 @@ document.addEventListener('change',async e=>{
     const c=S.clients.find(x=>x.id===assigneeEl.dataset.cid);if(!c)return;
     const i=c.integrations.find(x=>x.id===assigneeEl.dataset.iid);if(!i)return;
     const prev=i.assignee;i.assignee=assigneeEl.value;assigneeEl.disabled=true;
-    try{await saveClients(`Assignee: ${i.name} → ${i.assignee||'Unassigned'}`);showToast(`Assignee updated ✓`);assigneeEl.disabled=false;}
+    try{await saveClients(`Assignee: ${i.name} → ${i.assignee||'Unassigned'}`,[c.id]);showToast(`Assignee updated ✓`);assigneeEl.disabled=false;}
     catch(err){i.assignee=prev;showToast('Failed: '+err.message,'error');render();}
     return;
   }
@@ -887,7 +887,7 @@ document.addEventListener('change',async e=>{
   if(roleEl&&can('admin')){
     const u=S.users.find(x=>x.id===roleEl.dataset.uid);if(!u||u.id===S.user?.id)return;
     const prev=u.role;u.role=roleEl.value;roleEl.disabled=true;
-    try{await saveUsers(`Role: ${u.username}`);showToast(`${u.name} → ${u.role}`);roleEl.disabled=false;}
+    try{await saveUsers(`Role: ${u.username}`,[u.id]);showToast(`${u.name} → ${u.role}`);roleEl.disabled=false;}
     catch(err){u.role=prev;showToast('Failed','error');render();}
     return;
   }
