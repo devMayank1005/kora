@@ -132,9 +132,12 @@ function renderAmsClientDetail(clientId){
       <div class="flex gap-1.5 items-end pb-0.5">
         ${[['This Month','this-month'],['Last Month','last-month'],['This Quarter','this-quarter'],['All Time','all-time']].map(([l,k])=>`<button data-act="ams-quick" data-range="${k}" class="text-xs px-2.5 py-2 rounded-lg border transition ${S.amsQuick===k?'bg-[#0e7490] text-white border-[#0e7490]':'border-gray-200 text-gray-500 hover:border-[#0e7490] hover:text-[#0e7490]'}">${l}</button>`).join('')}
       </div>
-      <button data-act="exp-ams-activity" data-cid="${esc(c.id)}" class="bg-white border border-[#0e7490] text-[#0e7490] text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#0e7490]/5 transition">📋 Activity Report</button>
-      <button data-act="exp-excel" data-etype="ams" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-sm font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
-      <button data-act="open-import-ams" data-cid="${esc(c.id)}" class="bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium px-3 py-2 rounded-xl hover:bg-amber-100 transition">⬆ Import</button>
+      ${exportMenuButton(`ams-${c.id}`,[
+        {label:'📋 Activity Report (PDF)',act:'exp-ams-activity',data:{cid:c.id}},
+        {label:'🧾 Invoice / Billing (PDF)',act:'exp-ams-invoice',data:{cid:c.id}},
+        {label:'📊 Excel',act:'exp-excel',data:{etype:'ams',cid:c.id}},
+        {label:'⬆ Import (CSV)',act:'open-import-ams',data:{cid:c.id}},
+      ])}
     </div>
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Hours This Period${t.hasBucket?` (${t.coveredHours.toFixed(1)} covered)`:''}</div></div>
@@ -148,7 +151,11 @@ function renderAmsClientDetail(clientId){
     <div class="flex flex-wrap items-end gap-3 mb-4">
       <div><label class="block text-xs text-gray-400 mb-1">From</label><input id="ams-from" data-act="ams-range" type="date" value="${esc(S.amsFrom)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       <div><label class="block text-xs text-gray-400 mb-1">To</label><input id="ams-to" data-act="ams-range" type="date" value="${esc(S.amsTo)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <button data-act="exp-ams-activity" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📋 Activity Report</button>
+      ${exportMenuButton(`ams-${c.id}`,[
+        {label:'📋 Activity Report (PDF)',act:'exp-ams-activity',data:{cid:c.id}},
+        {label:'📊 Excel',act:'exp-excel',data:{etype:'ams',cid:c.id}},
+        {label:'⬆ Import (CSV)',act:'open-import-ams',data:{cid:c.id}},
+      ])}
     </div>
     <div class="bg-gray-50 rounded-xl p-4 inline-block"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Total Hours (Retainer)</div></div>
   </div>`:''}

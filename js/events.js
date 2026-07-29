@@ -2,8 +2,12 @@
 document.addEventListener('click',async e=>{
   if(e.target.id==='modal-overlay'&&e.target===e.currentTarget){if(S.modal?.busy)return;S.modal=null;render();return;}
   if(e.target.id==='cmdp-overlay'){S.cmdPaletteOpen=false;render();return;}
+  if(S.openExportMenu&&!e.target.closest(`[data-export-menu="${S.openExportMenu}"]`)){S.openExportMenu=null;render();}
   const el=e.target.closest('[data-act]');if(!el)return;
   const act=el.dataset.act;
+  if(act.startsWith('exp-')||act==='open-import-integ'||act==='open-import-ams'||act==='open-import-impl')S.openExportMenu=null;
+
+  if(act==='toggle-export-menu'){S.openExportMenu=S.openExportMenu===el.dataset.menuId?null:el.dataset.menuId;render();return;}
 
   if(act==='login'){
     const u=document.getElementById('lu')?.value.trim(),p=document.getElementById('lp')?.value;
@@ -74,8 +78,8 @@ document.addEventListener('click',async e=>{
   if(act==='audit-prev'){if(S.auditPage>0){S.auditPage--;loadAuditLog();}return;}
   if(act==='audit-next'){S.auditPage++;loadAuditLog();return;}
   if(act==='audit-export'){setBtnBusy(el,'Exporting…');try{const d=await fetchAuditLog({export:true});exportAuditExcel(d.rows);}catch(e){showToast(e.message||'Export failed','error');}finally{clearBtnBusy(el);}return;}
-  if(act==='exp-pptx'){setBtnBusy(el,'Generating…');try{await exportPptx(el.dataset.id);}finally{clearBtnBusy(el);}return;}
-  if(act==='exp-pdf'){setBtnBusy(el,'Generating…');try{await exportPdf(el.dataset.id);}finally{clearBtnBusy(el);}return;}
+  if(act==='exp-pptx'){setBtnBusy(el,'Generating…');try{await exportPptx(el.dataset.cid);}finally{clearBtnBusy(el);}return;}
+  if(act==='exp-pdf'){setBtnBusy(el,'Generating…');try{await exportPdf(el.dataset.cid);}finally{clearBtnBusy(el);}return;}
   if(act==='exp-impl-pdf'){setBtnBusy(el,'Generating…');try{exportImplPdf(el.dataset.cid);}finally{clearBtnBusy(el);}return;}
   if(act==='exp-ams-invoice'){if(!can('admin'))return;setBtnBusy(el,'Generating…');try{exportAmsInvoicePdf(el.dataset.cid);}finally{clearBtnBusy(el);}return;}
   if(act==='copy-update'){try{await navigator.clipboard.writeText(el.dataset.text);showToast('Copied ✓');}catch(e){showToast('Copy failed','error');}return;}

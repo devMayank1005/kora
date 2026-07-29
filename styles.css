@@ -320,13 +320,27 @@ label { font-size: 11px; font-weight: 500; color: var(--mute); text-transform: u
   transition: opacity .2s ease;
 }
 #loading-overlay.visible { opacity: 1; pointer-events: auto; }
-.loading-overlay-spinner {
-  width: 52px; height: 52px; border-radius: 50%;
-  background: #fff; box-shadow: 0 4px 24px rgba(0,0,0,.12);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--teal, #0e7490);
+.loading-overlay-card {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: #fff; border-radius: 16px;
+  padding: 22px 28px; box-shadow: 0 4px 24px rgba(0,0,0,.12);
 }
-.loading-overlay-spinner svg { width: 26px; height: 26px; }
+.loading-hourglass {
+  font-size: 34px; line-height: 1;
+  display: inline-block;
+  animation: hourglass-flip 1.8s ease-in-out infinite;
+}
+@keyframes hourglass-flip {
+  0%   { transform: rotate(0deg); }
+  45%  { transform: rotate(0deg); }
+  55%  { transform: rotate(180deg); }
+  100% { transform: rotate(180deg); }
+}
+.loading-overlay-text {
+  font-size: 12.5px; font-weight: 500; color: var(--mute, #6b7280);
+  letter-spacing: .01em;
+  min-width: 120px; text-align: center;
+}
 
 /* ── Toast ───────────────────────────────────────────────────── */
 .toast-in { animation: toast var(--t); }

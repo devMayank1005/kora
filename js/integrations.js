@@ -69,19 +69,13 @@ function renderClientDetail(clientId){
     <div><h1 class="text-xl font-bold text-gray-900">${esc(c.name)}</h1>${c.description?`<p class="text-sm text-gray-400 mt-0.5">${esc(c.description)}</p>`:''}</div>
     <div class="flex items-center gap-2">
     ${can('admin')?`<button data-act="toggle-bulk-integ" data-cid="${esc(c.id)}" class="whitespace-nowrap text-sm font-medium px-4 py-2 rounded-xl transition ${S.bulkIntegMode&&S.bulkIntegCid===c.id?'bg-rose-50 border border-rose-200 text-rose-600':'border border-gray-200 text-gray-600 hover:border-gray-300'}">${S.bulkIntegMode&&S.bulkIntegCid===c.id?'✕ Cancel':'☑ Select'}</button>`:''}
-    <div class="relative group">
-      <button class="flex items-center gap-1.5 btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Export ▾
-      </button>
-      <div class="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl w-52 py-1 hidden group-hover:block z-10">
-        <button data-act="exp-pptx" data-id="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📊 PowerPoint</button>
-        <button data-act="exp-pdf"  data-id="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📄 PDF</button>
-        <button data-act="exp-excel" data-etype="integrations" data-cid="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">📋 Excel (Integrations)</button>
-        <button data-act="exp-excel" data-etype="milestones" data-cid="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">🎯 Excel (Milestones)</button>
-        <div class="border-t border-gray-100 my-1"></div>
-        <button data-act="open-import-integ" data-cid="${esc(c.id)}" class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">⬆ Import Integrations (CSV)</button>
-      </div>
-    </div>
+    ${exportMenuButton(`integ-${c.id}`,[
+      {label:'📊 PowerPoint',act:'exp-pptx',data:{cid:c.id}},
+      {label:'📄 PDF',act:'exp-pdf',data:{cid:c.id}},
+      {label:'📋 Excel (Integrations)',act:'exp-excel',data:{etype:'integrations',cid:c.id}},
+      {label:'🎯 Excel (Milestones)',act:'exp-excel',data:{etype:'milestones',cid:c.id}},
+      {label:'⬆ Import Integrations (CSV)',act:'open-import-integ',data:{cid:c.id}},
+    ])}
     </div>
   </div>
   <div class="flex gap-2 overflow-x-auto pb-1 mb-5 items-center">

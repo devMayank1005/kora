@@ -1,7 +1,7 @@
 const KOGNOZ_LOGO="/kognoz_Iogo.png";
 let _bgRefreshTimer=null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
-const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,selectedIntegId:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null,authMessage:null};
+const S={user:null,clients:[],archivedClients:[],users:[],usersForDropdown:[],shas:{clients:null,users:null},sessionToken:null,view:'login',params:{},adminTab:'integrations',filter:'all',search:'',modal:null,toast:null,sidebarCollapsed:false,sidebarClientsOpen:false,sort:{key:'name',dir:'asc'},editingTimelineId:null,expandedHistory:new Set(),amsFrom:'',amsTo:'',amsQuick:'',editingAmsEntryId:null,expandedAmsHistory:new Set(),selectedAmsEntryId:null,selectedIntegId:null,openExportMenu:null,cmdPaletteOpen:false,cmdQuery:'',cmdSelectedIdx:0,recentlyViewed:[],darkMode:false,bulkImplMode:false,bulkImplCid:null,bulkSelected:new Set(),offlineMode:false,bulkIntegMode:false,bulkIntegCid:null,bulkIntegSelected:new Set(),dashAttnSort:{key:'reason',dir:'desc'},dashClientSort:{key:'name',dir:'asc'},dashAssigneeSort:{key:'total',dir:'desc'},dashAssigneeSearch:'',dashAssigneeExpanded:new Set(),dashAssigneeFilter:'all',adminSearch:'',auditRows:[],auditTotal:0,auditPage:0,auditPageSize:50,auditFrom:'',auditTo:'',auditUser:'',auditSearch:'',auditLoading:false,auditLoaded:false,snapshotHistory:[],snapshotChecked:false,snapshotHistoryFetched:false,pendingPath:null,authMessage:null};
 
 try{S.sidebarCollapsed=localStorage.getItem('itk_sb_collapsed')==='1';}catch(e){}
 try{const r=localStorage.getItem('itk_recent');if(r)S.recentlyViewed=JSON.parse(r);}catch(e){}
@@ -20,7 +20,7 @@ const AMS_QUERY_LEVELS=['L1 - Low','L2 - Medium','L3 - High','L4 - Critical'];
 const AMS_ENTRY_STATUSES=['Open','In Progress','Closed'];
 const AMS_MODES=['Online / Remote','Offline / In-person'];
 const HOURS_PER_DAY=8;
-const TEAL='0e7490',TEAL_DARK='0d3d4f',MAGENTA='b5179e',VIOLET='7c3aed';
+const TEAL='0e7490',TEAL_DARK='0d3d4f',MAGENTA='b5179e',VIOLET='7c3aed',BLUE_ACCENT='2563eb';
 const SBG={'Completed':'k-status k-status-completed','In Progress':'k-status k-status-inprogress','At Risk':'k-status k-status-atrisk','On Hold — Internal':'k-status k-status-onhold','On Hold — Client':'k-status k-status-onhold','Pending Client':'k-status k-status-pending','Under Review':'k-status k-status-review','Delayed':'k-status k-status-delayed','Cancelled':'k-status k-status-cancelled','Not Started':'k-status k-status-notstarted'};
 const SHEX={'Completed':'22c55e','In Progress':'0e7490','At Risk':'be185d','On Hold — Internal':'7c3aed','On Hold — Client':'9333ea','Pending Client':'d97706','Under Review':'0284c7','Delayed':'ea580c','Cancelled':'94a3b8','Not Started':'64748b'};
 const SDOT=Object.fromEntries(Object.entries(SHEX).map(([s,hex])=>[s,`#${hex}`]));
@@ -190,7 +190,7 @@ function pathToView(pathname){
 }
 function navigate(view,params={},opts={}){
   const isRealNav=S.view!==view;
-  const go=()=>{S.view=view;S.params=params;S.filter='all';S.search='';S.modal=null;S.sort={key:'name',dir:'asc'};S.editingTimelineId=null;S.expandedHistory=new Set();S.bulkImplMode=false;S.bulkImplCid=null;S.bulkSelected=new Set();S.selectedAmsEntryId=null;S.selectedIntegId=null;recordRecent(view,params);persistView(view,params);
+  const go=()=>{S.view=view;S.params=params;S.filter='all';S.search='';S.modal=null;S.sort={key:'name',dir:'asc'};S.editingTimelineId=null;S.expandedHistory=new Set();S.bulkImplMode=false;S.bulkImplCid=null;S.bulkSelected=new Set();S.selectedAmsEntryId=null;S.selectedIntegId=null;S.openExportMenu=null;recordRecent(view,params);persistView(view,params);
     if(!opts.fromPopState){
       const path=viewToPath(view,params);
       if(location.pathname!==path)history.pushState({view,params},'',path);
@@ -322,14 +322,34 @@ function showToast(msg,type='success',duration=3500,action=null){
 // ─── GLOBAL LOADING BAR + CENTER OVERLAY ──────────────────────────
 let _loadingCount=0;
 let _overlayTimer=null;
+let _overlayTextTimer=null;
 const OVERLAY_DELAY_MS=200; // only show the center blur overlay if the op is still running after this — keeps quick inline edits (status/assignee dropdowns etc.) feeling instant instead of flashing a blur
+const OVERLAY_TEXT_INTERVAL_MS=1600;
+// Playful cycling status words — same idea as Claude's own "thinking" labels.
+// Order is randomized per appearance so it doesn't feel scripted on repeat use.
+const OVERLAY_PHRASES=['Loading…','Fetching…','Syncing…','Organizing…','Sifting through data…','Tidying up…','Almost there…','Double-checking…'];
+function startLoadingTextCycle(){
+  const el=document.getElementById('loading-overlay-text');if(!el)return;
+  let pool=[...OVERLAY_PHRASES].sort(()=>Math.random()-0.5);
+  let i=0;
+  el.textContent=pool[0];
+  if(_overlayTextTimer)clearInterval(_overlayTextTimer);
+  _overlayTextTimer=setInterval(()=>{
+    i=(i+1)%pool.length;
+    if(i===0)pool=[...OVERLAY_PHRASES].sort(()=>Math.random()-0.5); // reshuffle each full lap
+    el.textContent=pool[i];
+  },OVERLAY_TEXT_INTERVAL_MS);
+}
+function stopLoadingTextCycle(){
+  if(_overlayTextTimer){clearInterval(_overlayTextTimer);_overlayTextTimer=null;}
+}
 function startLoading(){
   _loadingCount++;
   const b=document.getElementById('loading-bar');if(b){b.style.opacity='1';b.style.width='65%';}
   if(!_overlayTimer){
     _overlayTimer=setTimeout(()=>{
       _overlayTimer=null;
-      if(_loadingCount>0){const o=document.getElementById('loading-overlay');if(o)o.classList.add('visible');}
+      if(_loadingCount>0){const o=document.getElementById('loading-overlay');if(o)o.classList.add('visible');startLoadingTextCycle();}
     },OVERLAY_DELAY_MS);
   }
 }
@@ -343,9 +363,27 @@ function stopLoading(){
   if(_loadingCount===0){
     if(_overlayTimer){clearTimeout(_overlayTimer);_overlayTimer=null;}
     const o=document.getElementById('loading-overlay');if(o)o.classList.remove('visible');
+    stopLoadingTextCycle();
   }
 }
 function spinnerSvg(extra=''){return`<svg class="animate-spin h-3.5 w-3.5 ${extra}" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>`;}
+// Shared click-toggle export dropdown — used identically across Integration,
+// Implementation, and AMS detail pages. Deliberately click-driven, not
+// hover-driven: a hover menu (:hover / group-hover) closes the instant the
+// mouse leaves the button on the way to an item, which was reported as hard
+// to actually click. A click toggle stays open until the person picks an
+// item or clicks elsewhere (closed via the outside-click check in events.js).
+function exportMenuButton(menuId,items){
+  const open=S.openExportMenu===menuId;
+  return`<div class="relative inline-block" data-export-menu="${esc(menuId)}">
+    <button data-act="toggle-export-menu" data-menu-id="${esc(menuId)}" class="flex items-center gap-1.5 btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>Export ▾
+    </button>
+    ${open?`<div class="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-xl w-56 py-1 z-20">
+      ${items.map(it=>`<button data-act="${esc(it.act)}"${Object.entries(it.data||{}).map(([k,v])=>` data-${k}="${esc(v)}"`).join('')} class="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">${it.label}</button>`).join('')}
+    </div>`:''}
+  </div>`;
+}
 function setBtnBusy(el,label){if(!el)return;el.dataset._origHtml=el.innerHTML;el.disabled=true;el.classList.add('btn-busy');el.innerHTML=`<span class="inline-flex items-center justify-center gap-2">${spinnerSvg()}${label||'Working…'}</span>`;}
 function clearBtnBusy(el){if(!el)return;if(el.dataset._origHtml!==undefined){el.innerHTML=el.dataset._origHtml;delete el.dataset._origHtml;}el.disabled=false;el.classList.remove('btn-busy');}
 // ─── API ──────────────────────────────────────────────────────────

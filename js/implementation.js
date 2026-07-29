@@ -71,8 +71,10 @@ function renderImplClientDetail(clientId){
         <button data-act="toggle-bulk-impl" data-cid="${esc(c.id)}" class="text-xs text-gray-500 border border-gray-200 px-3 py-2 rounded-xl hover:bg-gray-50 transition">✕ Cancel</button>`
       :`${can('admin')?`<button data-act="toggle-bulk-impl" data-cid="${esc(c.id)}" class="bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-amber-100 transition">✓ Bulk Mark Complete</button>`:''}
         <button data-act="modal-open" data-modal="add-impl-module" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">+ Add Module</button>
-        <button data-act="exp-impl-pdf" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-medium px-4 py-2 rounded-xl transition">📄 Export PDF</button>
-      <button data-act="exp-excel" data-etype="impl" data-cid="${esc(c.id)}" class="bg-green-50 border border-green-200 text-green-700 text-xs font-medium px-3 py-2 rounded-xl hover:bg-green-100 transition">📊 Excel</button>
+        ${exportMenuButton(`impl-${c.id}`,[
+          {label:'📄 PDF',act:'exp-impl-pdf',data:{cid:c.id}},
+          {label:'📊 Excel',act:'exp-excel',data:{etype:'impl',cid:c.id}},
+        ])}
         ${can('editor')?`<button data-act="edit-impl-client" data-id="${esc(c.id)}" class="text-gray-400 hover:text-[#0e7490] text-xs px-2 border border-gray-200 rounded-lg py-1.5">Edit Client</button>`:''}
         ${can('admin')?`<button data-act="delete-impl-client" data-id="${esc(c.id)}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Remove Client</button>`:''}`}
     </div>
