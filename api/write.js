@@ -100,14 +100,29 @@ module.exports = async function handler(req, res) {
         _v: c._v,
       }));
 
-      // H-2 fix: check how many rows currently exist before allowing a
-      // delete-by-omission to remove a large fraction of them. Unchanged by
-      // the OCC work below — this is always keyed off the FULL client list,
-      // never just the rows changedIds says are actually being written.
+      // H-2 fix: fetch the current row ids fresh from the DB right before
+      // deciding what to delete. This is the source of truth for "does this
+      // id still exist" — the posted `allRows` array is just this tab's
+      // local snapshot and may be stale (another tab could have created a
+      // row since this tab last loaded).
       const countRes = await fetch(`${SUPABASE_URL}/rest/v1/clients?select=id`, { headers: sbHeaders });
       const currentIds = countRes.ok ? (await countRes.json()).map(r => r.id) : [];
       const newIdSet = new Set(allRows.map(r => r.id));
-      const removedCount = currentIds.filter(id => !newIdSet.has(id)).length;
+
+      // Delete-by-omission fix: a row is only ever a deletion candidate if
+      // this save's own changedIds names it. Without this, a stale posted
+      // array that simply doesn't contain a row someone else just created
+      // would look identical to that row having been deleted, and it would
+      // be wiped — this was the actual mechanism behind a prior data-loss
+      // incident. changedIds is this save's declared scope; a row outside
+      // that scope is left alone no matter what allRows does or doesn't
+      // contain. No changedIds at all (a call site that predates this)
+      // falls back to the old unconditional full-array-diff behavior.
+      const deleteIds = Array.isArray(changedIds) && changedIds.length
+        ? changedIds.filter(id => currentIds.includes(id) && !newIdSet.has(id))
+        : currentIds.filter(id => !newIdSet.has(id));
+
+      const removedCount = deleteIds.length;
       if (
         currentIds.length > 0 &&
         removedCount / currentIds.length > BULK_DELETE_GUARD_RATIO &&
@@ -176,19 +191,15 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      // Delete rows no longer present in the frontend array (client deletion).
-      // H-1 fix: ids are already validated above (safe slug), and we still
-      // encode defensively here so this remains safe even if that validation
-      // is ever loosened by a future change.
-      if (newIdSet.size > 0) {
-        const idList = [...newIdSet].map(id => `"${encodeURIComponent(id)}"`).join(',');
+      // Delete rows this save actually removed (see deleteIds above) — never
+      // a blanket diff against the browser-posted array. H-1 fix: ids are
+      // already validated above (safe slug), and we still encode defensively
+      // here so this remains safe even if that validation is ever loosened
+      // by a future change.
+      if (deleteIds.length) {
+        const idList = deleteIds.map(id => `"${encodeURIComponent(id)}"`).join(',');
         await fetch(
-          `${SUPABASE_URL}/rest/v1/clients?id=not.in.(${idList})`,
-          { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
-        );
-      } else {
-        await fetch(
-          `${SUPABASE_URL}/rest/v1/clients?id=neq.""`,
+          `${SUPABASE_URL}/rest/v1/clients?id=in.(${idList})`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
         );
       }
@@ -224,13 +235,28 @@ module.exports = async function handler(req, res) {
       // response, this means a hash is never in a browser's memory at all,
       // closing off the "steal an admin session, harvest every hash" chain.
       //
-      // Delete-by-omission below is always keyed off the full id set from
-      // `data`, never off toWrite — narrowing that to just the changed
-      // user(s) would make everyone else look deleted.
-      const allIds = data.map(u => u.id);
+      // H-2 fix: fetch current row ids fresh from the DB — same fix as the
+      // clients path above. `data` is this tab's local snapshot and may be
+      // stale (another tab could have created a user since this tab last
+      // loaded), so it's never trustworthy as the "does this id still
+      // exist" source of truth on its own.
+      const idsRes = await fetch(`${SUPABASE_URL}/rest/v1/users?select=id`, { headers: sbHeaders });
+      const currentIds = idsRes.ok ? (await idsRes.json()).map(r => r.id) : [];
+      const newIdSet = new Set(data.map(u => u.id));
+
       const toProcess = Array.isArray(changedIds) && changedIds.length
         ? data.filter(u => changedIds.includes(u.id))
         : data;
+
+      // Delete-by-omission fix: a row is only ever a deletion candidate if
+      // this save's own changedIds names it — a stale `data` array simply
+      // missing a user someone else just created must never be treated as
+      // that user having been deleted. No changedIds at all (a call site
+      // that predates this) falls back to the old unconditional
+      // full-array-diff behavior.
+      const deleteIds = Array.isArray(changedIds) && changedIds.length
+        ? changedIds.filter(id => currentIds.includes(id) && !newIdSet.has(id))
+        : currentIds.filter(id => !newIdSet.has(id));
 
       const idsNeedingLookup = toProcess.filter(u => !u.password).map(u => u.id);
       let existingHashes = {};
@@ -310,10 +336,10 @@ module.exports = async function handler(req, res) {
         }
       }
 
-      if (allIds.length > 0) {
-        const idList = allIds.map(id => `"${encodeURIComponent(id)}"`).join(',');
+      if (deleteIds.length) {
+        const idList = deleteIds.map(id => `"${encodeURIComponent(id)}"`).join(',');
         await fetch(
-          `${SUPABASE_URL}/rest/v1/users?id=not.in.(${idList})`,
+          `${SUPABASE_URL}/rest/v1/users?id=in.(${idList})`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
         );
       }
