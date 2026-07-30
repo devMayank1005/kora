@@ -33,8 +33,8 @@ async function exportPptx(clientId){
     const s1=pptx.addSlide();s1.background={color:NV};
     s1.addText('INTEGRATION STATUS REPORT',{x:.5,y:1.0,w:12.5,h:.4,fontSize:10,color:'7dd3e8',align:'center',charSpacing:4});
     s1.addText(c.name,{x:.5,y:1.6,w:12.5,h:1.2,fontSize:44,color:'FFFFFF',bold:true,align:'center'});
-    try{s1.addImage({path:KOGNOZ_LOGO,x:5.15,y:2.9,w:2.8,h:0.84});}catch(e){s1.addText('Kognoz',{x:.5,y:3.0,w:12.5,h:.4,fontSize:14,color:'7dd3e8',align:'center'});}
-    s1.addShape(pptx.ShapeType.rect,{x:5.65,y:3.55,w:2,h:.05,fill:{color:MG},line:{type:'none'}});
+    s1.addShape(pptx.ShapeType.rect,{x:5.65,y:3.1,w:2,h:.05,fill:{color:MG},line:{type:'none'}});
+    try{s1.addImage({path:KOGNOZ_LOGO,x:5.5,y:5.9,w:2.4,h:0.72});}catch(e){s1.addText('Kognoz',{x:.5,y:6.0,w:12.5,h:.4,fontSize:14,color:'7dd3e8',align:'center'});}
     s1.addText(new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}),{x:.5,y:6.7,w:12.5,h:.3,fontSize:10,color:'64748b',align:'center'});
     // Summary
     const s2=pptx.addSlide();s2.background={color:'f5f9fa'};
@@ -57,15 +57,17 @@ async function exportPptx(clientId){
     // No truncation: rows are packed per slide based on ESTIMATED rendered height
     // (PptxGenJS has no native auto-pagination with custom branding, so we pack manually,
     // erring conservative so nothing overflows the slide edge).
-    const CHARS_PER_LINE=95,LINE_H=0.15;
+    const CHARS_PER_LINE=105,LINE_H=0.13;
     const estLines=(text)=>!text?1:text.split('\n').reduce((s,l)=>s+Math.max(1,Math.ceil(l.length/CHARS_PER_LINE)),0);
     const detailRows=c.integrations.map(i=>{
       const updates=i.timeline||[]; // already newest-first (unshift on add)
       const nextText=i.nextAction||'';
       const overdueTxt=isOverdue(i)?`⚠ ${daysOverdue(i)}d overdue`:'';
-      const updatesLines=updates.length?updates.reduce((s,t)=>s+1+estLines(t.update)+1,0):1;
-      const blockLines=1+updatesLines+1+1+estLines(nextText||'No next action noted.');
-      const estHeight=Math.max(0.6,blockLines*LINE_H+0.12);
+      // Compact: date + text share one wrapped run, no blank line between entries —
+      // only the header line + a small 0.3-line visual gap per entry.
+      const updatesLines=updates.length?updates.reduce((s,t)=>s+estLines(`(${fmtDate(t.date)}) ${t.update}`)+0.3,0):1;
+      const blockLines=1+updatesLines+0.6+1+estLines(nextText||'No next action noted.');
+      const estHeight=Math.max(0.5,blockLines*LINE_H+0.1);
       return{name:i.name,assignee:i.assignee||'Unassigned',status:i.status,due:i.dueDate?fmtDate(i.dueDate):'—',overdueTxt,updates,nextText,estHeight};
     });
     const SLIDE_BODY_H=5.7; // conservative usable height per slide, after header bar + table header row
@@ -97,13 +99,13 @@ async function exportPptx(clientId){
           {text:row.status,options:{bold:true,fontSize:8.5,color:SHEX[row.status]||'64748b',fill:{color:bg},valign:'top'}},
           {text:row.overdueTxt?[{text:row.due+'\n',options:{fontSize:8.5,color:'374151'}},{text:row.overdueTxt,options:{fontSize:7,bold:true,color:'be185d'}}]:row.due,options:{fill:{color:bg},valign:'top',fontSize:8.5,color:'374151'}},
           {text:[
-            {text:`Updates (${row.updates.length}):\n`,options:{bold:true,fontSize:8,color:'1f2937'}},
+            {text:`Updates (${row.updates.length}):\n`,options:{bold:true,fontSize:7.5,color:'1f2937'}},
             ...(row.updates.length?row.updates.flatMap(t=>[
-              {text:`(${fmtDate(t.date)}) `,options:{bold:true,fontSize:8,color:'1f2937'}},
-              {text:t.update+'\n\n',options:{fontSize:8,color:'4b5563'}},
-            ]):[{text:'No updates yet.\n\n',options:{fontSize:8,italic:true,color:'9ca3af'}}]),
-            {text:'Next:\n',options:{bold:true,fontSize:8,color:'1f2937'}},
-            row.nextText?{text:row.nextText,options:{fontSize:8,color:'4b5563'}}:{text:'No next action noted.',options:{fontSize:8,italic:true,color:'9ca3af'}},
+              {text:`(${fmtDate(t.date)}) `,options:{bold:true,fontSize:7.5,color:'1f2937'}},
+              {text:t.update+'\n',options:{fontSize:7.5,color:'4b5563'}},
+            ]):[{text:'No updates yet.\n',options:{fontSize:7.5,italic:true,color:'9ca3af'}}]),
+            {text:'\nNext:\n',options:{bold:true,fontSize:7.5,color:'1f2937'}},
+            row.nextText?{text:row.nextText,options:{fontSize:7.5,color:'4b5563'}}:{text:'No next action noted.',options:{fontSize:7.5,italic:true,color:'9ca3af'}},
           ],options:{fill:{color:bg},valign:'top'}},
         ];
       });
