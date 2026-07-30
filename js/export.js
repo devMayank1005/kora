@@ -60,14 +60,13 @@ async function exportPptx(clientId){
     const CHARS_PER_LINE=95,LINE_H=0.15;
     const estLines=(text)=>!text?1:text.split('\n').reduce((s,l)=>s+Math.max(1,Math.ceil(l.length/CHARS_PER_LINE)),0);
     const detailRows=c.integrations.map(i=>{
-      const latest=i.timeline?.[0];
-      const updateText=latest?latest.update:'No updates yet.';
-      const updateDate=latest?fmtDate(latest.date):'';
+      const updates=i.timeline||[]; // already newest-first (unshift on add)
       const nextText=i.nextAction||'';
       const overdueTxt=isOverdue(i)?`⚠ ${daysOverdue(i)}d overdue`:'';
-      const blockLines=1+estLines(updateText)+1+1+estLines(nextText||'No next action noted.');
+      const updatesLines=updates.length?updates.reduce((s,t)=>s+1+estLines(t.update)+1,0):1;
+      const blockLines=1+updatesLines+1+1+estLines(nextText||'No next action noted.');
       const estHeight=Math.max(0.6,blockLines*LINE_H+0.12);
-      return{name:i.name,assignee:i.assignee||'Unassigned',status:i.status,due:i.dueDate?fmtDate(i.dueDate):'—',overdueTxt,updateText,updateDate,nextText,estHeight};
+      return{name:i.name,assignee:i.assignee||'Unassigned',status:i.status,due:i.dueDate?fmtDate(i.dueDate):'—',overdueTxt,updates,nextText,estHeight};
     });
     const SLIDE_BODY_H=5.7; // conservative usable height per slide, after header bar + table header row
     const chunks=[];let cur=[],curH=0;
@@ -87,7 +86,7 @@ async function exportPptx(clientId){
         {text:'Assignee',options:{bold:true,fill:{color:NV},color:'FFFFFF',fontSize:9}},
         {text:'Status',options:{bold:true,fill:{color:NV},color:'FFFFFF',fontSize:9}},
         {text:'Due Date',options:{bold:true,fill:{color:NV},color:'FFFFFF',fontSize:9}},
-        {text:'Latest Update & Next Steps',options:{bold:true,fill:{color:NV},color:'FFFFFF',fontSize:9}},
+        {text:'All Updates & Next Steps',options:{bold:true,fill:{color:NV},color:'FFFFFF',fontSize:9}},
       ];
       const bodyRows=chunk.map((row,ri)=>{
         const bg=ri%2?'FFFFFF':'f5f9fa';
@@ -98,8 +97,11 @@ async function exportPptx(clientId){
           {text:row.status,options:{bold:true,fontSize:8.5,color:SHEX[row.status]||'64748b',fill:{color:bg},valign:'top'}},
           {text:row.overdueTxt?[{text:row.due+'\n',options:{fontSize:8.5,color:'374151'}},{text:row.overdueTxt,options:{fontSize:7,bold:true,color:'be185d'}}]:row.due,options:{fill:{color:bg},valign:'top',fontSize:8.5,color:'374151'}},
           {text:[
-            {text:'Update:'+(row.updateDate?` (${row.updateDate})`:'')+'\n',options:{bold:true,fontSize:8,color:'1f2937'}},
-            {text:row.updateText+'\n\n',options:{fontSize:8,color:'4b5563'}},
+            {text:`Updates (${row.updates.length}):\n`,options:{bold:true,fontSize:8,color:'1f2937'}},
+            ...(row.updates.length?row.updates.flatMap(t=>[
+              {text:`(${fmtDate(t.date)}) `,options:{bold:true,fontSize:8,color:'1f2937'}},
+              {text:t.update+'\n\n',options:{fontSize:8,color:'4b5563'}},
+            ]):[{text:'No updates yet.\n\n',options:{fontSize:8,italic:true,color:'9ca3af'}}]),
             {text:'Next:\n',options:{bold:true,fontSize:8,color:'1f2937'}},
             row.nextText?{text:row.nextText,options:{fontSize:8,color:'4b5563'}}:{text:'No next action noted.',options:{fontSize:8,italic:true,color:'9ca3af'}},
           ],options:{fill:{color:bg},valign:'top'}},
@@ -143,24 +145,23 @@ function exportPdf(clientId){
     // Integration Details — single autoTable call, natively paginates across as many pages as needed
     doc.addPage();
     const detailRows=c.integrations.map(i=>{
-      const latest=i.timeline?.[0];
-      const updateText=latest?latest.update:'No updates yet.';
-      const updateDate=latest?fmtDate(latest.date):'';
+      const updates=i.timeline||[]; // already newest-first (unshift on add)
       const nextText=i.nextAction||'';
       const overdue=isOverdue(i);
       const dueCell=i.dueDate?fmtDate(i.dueDate):'—';
       // Sizing string: autoTable wraps this to compute row height. Line count here must
       // match what didDrawCell below actually draws, so nothing gets cut off.
-      const sizingStr=`Update:${updateDate?` (${updateDate})`:''}\n${updateText}\n\nNext:\n${nextText||'No next action noted.'}`;
+      const updatesSizing=updates.length?updates.map(t=>`(${fmtDate(t.date)}) ${t.update}`).join('\n\n'):'No updates yet.';
+      const sizingStr=`Updates (${updates.length}):\n${updatesSizing}\n\nNext:\n${nextText||'No next action noted.'}`;
       return{
-        status:i.status,overdue,updateText,updateDate,nextText,
+        status:i.status,overdue,updates,nextText,
         row:['',i.name,i.assignee||'Unassigned',i.status,overdue?`${dueCell}\n${daysOverdue(i)}d OVERDUE`:dueCell,sizingStr],
       };
     });
     doc.autoTable({
       startY:16,
       margin:{top:16,left:10,right:10,bottom:10},
-      head:[['','Integration','Assignee','Status','Due Date','Latest Update & Next Steps']],
+      head:[['','Integration','Assignee','Status','Due Date','All Updates & Next Steps']],
       body:detailRows.map(d=>d.row),
       headStyles:{fillColor:NV,textColor:[255,255,255],fontStyle:'bold',fontSize:9},
       styles:{fontSize:8,cellPadding:3,valign:'top'},
@@ -174,20 +175,29 @@ function exportPdf(clientId){
         if(d.column.index===4&&meta.overdue){d.cell.styles.textColor=[190,24,93];d.cell.styles.fontStyle='bold';}
       },
       didDrawCell:d=>{
-        // Custom render for the Update/Next column: bold labels, bold date, blank line gap.
-        // We let autoTable draw+size the cell normally (so pagination/height stays exact),
-        // then cover that plain text here and redraw it styled, using the same line count.
+        // Custom render for the Update/Next column: bold labels, bold date per entry,
+        // blank-line gap between entries. We let autoTable draw+size the cell normally
+        // (so pagination/height stays exact), then cover that plain text here and
+        // redraw it styled, using the same line count the sizing string produced.
         if(d.section!=='body'||d.column.index!==5)return;
         const meta=detailRows[d.row.index];if(!meta)return;
         const bg=d.row.index%2?[255,255,255]:[245,249,250];
         doc.setFillColor(...bg);doc.rect(d.cell.x,d.cell.y,d.cell.width,d.cell.height,'F');
         const x=d.cell.x+3,maxW=d.cell.width-6;let y=d.cell.y+4;const lh=3.3;
         doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(31,41,55);
-        doc.text('Update:'+(meta.updateDate?` (${meta.updateDate})`:''),x,y);y+=lh;
-        doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-        const updLines=doc.splitTextToSize(meta.updateText,maxW);
-        doc.text(updLines,x,y);y+=updLines.length*lh;
-        y+=lh;
+        doc.text(`Updates (${meta.updates.length}):`,x,y);y+=lh;
+        if(meta.updates.length){
+          meta.updates.forEach(t=>{
+            doc.setFont('helvetica','bold');doc.setTextColor(31,41,55);
+            doc.text(`(${fmtDate(t.date)})`,x,y);y+=lh;
+            doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
+            const lines=doc.splitTextToSize(t.update,maxW);
+            doc.text(lines,x,y);y+=lines.length*lh+lh;
+          });
+        }else{
+          doc.setFont('helvetica','italic');doc.setTextColor(156,163,175);
+          doc.text('No updates yet.',x,y);y+=lh+lh;
+        }
         doc.setFont('helvetica','bold');doc.setTextColor(31,41,55);
         doc.text('Next:',x,y);y+=lh;
         if(meta.nextText){
@@ -277,16 +287,14 @@ function exportImplPdf(clientId){
       detailRows.push({isHeader:true,moduleName:m.name,row:['',m.name,'','','',''],status:null});
       PHASES.forEach(phName=>{
         const ph=(m.phases||[]).find(x=>x.name===phName)||{name:phName,status:'Not Started',startDate:'',targetDate:'',updates:[]};
-        const latest=(ph.updates||[])[0];
-        const updateText=latest?latest.update:'No updates yet.';
-        const updateDate=latest?fmtDate(latest.date):'';
-        const updateCount=(ph.updates||[]).length;
+        const updates=ph.updates||[]; // already newest-first (unshift on add)
         const nextText=ph.nextAction||'';
         const actText=ph.currentActivity||'';
-        const sizingStr=`Update:${updateDate?` (${updateDate})`:''}\n${updateText}\n\nNext:\n${nextText||'No next action noted.'}`;
+        const updatesSizing=updates.length?updates.map(t=>`(${fmtDate(t.date)}) ${t.update}`).join('\n\n'):'No updates yet.';
+        const sizingStr=`Updates (${updates.length}):\n${updatesSizing}\n\nNext:\n${nextText||'No next action noted.'}`;
         detailRows.push({
           isHeader:false,moduleName:m.name,phaseName:phName,
-          status:ph.status,updateText,updateDate,updateCount,nextText,actText,
+          status:ph.status,updates,nextText,actText,
           assignee:ph.assignee||'',
           startDate:ph.startDate?fmtDate(ph.startDate):'-',
           targetDate:ph.targetDate?fmtDate(ph.targetDate):'-',
@@ -297,7 +305,7 @@ function exportImplPdf(clientId){
     doc.autoTable({
       startY:16,
       margin:{top:16,left:10,right:10,bottom:10},
-      head:[['','Phase','Status','Start Date','Target Date','Latest Update & Next Action']],
+      head:[['','Phase','Status','Start Date','Target Date','All Updates & Next Action']],
       body:detailRows.map(d=>d.row),
       headStyles:{fillColor:NV,textColor:[255,255,255],fontStyle:'bold',fontSize:9},
       styles:{fontSize:8,cellPadding:3,valign:'top'},
@@ -323,11 +331,19 @@ function exportImplPdf(clientId){
         doc.setFillColor(...bg);doc.rect(d.cell.x,d.cell.y,d.cell.width,d.cell.height,'F');
         const x=d.cell.x+3,maxW=d.cell.width-6;let y=d.cell.y+4;const lh=3.3;
         doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(31,41,55);
-        doc.text('Update:'+(meta.updateDate?` (${meta.updateDate})`:''),x,y);y+=lh;
-        doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-        const updLines=doc.splitTextToSize(meta.updateText,maxW);
-        doc.text(updLines,x,y);y+=updLines.length*lh;
-        y+=lh;
+        doc.text(`Updates (${meta.updates.length}):`,x,y);y+=lh;
+        if(meta.updates.length){
+          meta.updates.forEach(t=>{
+            doc.setFont('helvetica','bold');doc.setTextColor(31,41,55);
+            doc.text(`(${fmtDate(t.date)})`,x,y);y+=lh;
+            doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
+            const lines=doc.splitTextToSize(t.update,maxW);
+            doc.text(lines,x,y);y+=lines.length*lh+lh;
+          });
+        }else{
+          doc.setFont('helvetica','italic');doc.setTextColor(156,163,175);
+          doc.text('No updates yet.',x,y);y+=lh+lh;
+        }
         doc.setFont('helvetica','bold');doc.setTextColor(31,41,55);
         doc.text('Next:',x,y);y+=lh;
         if(meta.nextText){
@@ -522,16 +538,16 @@ function exportExcel(type, clientId){
   const c=S.clients.find(x=>x.id===clientId);if(!c)return;
   let wb,ws,data,headers,filename;
   if(type==='integrations'){
-    headers=['Integration','Status','Assignee','Due Date','Description','Next Action','Last Update'];
-    data=(c.integrations||[]).map(i=>[i.name||'',i.status||'',i.assignee||'',i.dueDate?fmtDate(i.dueDate):'',i.description||'',i.nextAction||'',(i.timeline||[])[0]?.date?fmtDate((i.timeline||[])[0].date):'']);
+    headers=['Integration','Status','Assignee','Due Date','Description','Next Action','All Updates'];
+    data=(c.integrations||[]).map(i=>[i.name||'',i.status||'',i.assignee||'',i.dueDate?fmtDate(i.dueDate):'',i.description||'',i.nextAction||'',(i.timeline||[]).length?(i.timeline||[]).map(t=>`(${fmtDate(t.date)}) ${t.update}`).join('\n'):'']);
     filename=exportFilename(c.name,'Integrations','xlsx');
   }else if(type==='ams'){
     headers=['#','Date Raised','Due Date','Raised By','Module','Project','Description','Type','Query Level','Entry Status','RAG','Mode','Hours'];
     data=(c.workLog||[]).map((e,i)=>[i+1,fmtDate(entryDate(e)),e.dueDate?fmtDate(e.dueDate):'',entryRaisedBy(e),e.module||'',e.project||'',e.description||'',entryType(e),e.queryLevel||'',e.entryStatus||'Open',e.ragStatus||'',e.modeOfSupport||'',Number(e.hours||0).toFixed(1)]);
     filename=exportFilename(c.name,'AMS_Entries','xlsx');
   }else if(type==='impl'){
-    headers=['Module','Phase','Status','Assignee','Start Date','Target Date','Current Activity','Next Action','Updates Count'];
-    data=(c.modules||[]).flatMap(m=>(m.phases||[]).map(ph=>[m.name,ph.name,ph.status||'',ph.assignee||'',ph.startDate?fmtDate(ph.startDate):'',ph.targetDate?fmtDate(ph.targetDate):'',ph.currentActivity||'',ph.nextAction||'',(ph.updates||[]).length]));
+    headers=['Module','Phase','Status','Assignee','Start Date','Target Date','Current Activity','Next Action','All Updates'];
+    data=(c.modules||[]).flatMap(m=>(m.phases||[]).map(ph=>[m.name,ph.name,ph.status||'',ph.assignee||'',ph.startDate?fmtDate(ph.startDate):'',ph.targetDate?fmtDate(ph.targetDate):'',ph.currentActivity||'',ph.nextAction||'',(ph.updates||[]).length?(ph.updates||[]).map(t=>`(${fmtDate(t.date)}) ${t.update}`).join('\n'):'']));
     filename=exportFilename(c.name,'Implementation','xlsx');
   }else if(type==='milestones'){
     headers=['Integration','Milestone','Status','Due Date','Owner','Notes'];
@@ -580,7 +596,7 @@ function exportConsolidatedPdf(clientIds, sections){
     if(sections.includes('integrations')&&(c.integrations||[]).length){
       doc.addPage();drawHdr('Integrations',c.name);
       doc.autoTable({startY:18,margin:{top:18,left:10,right:10},head:[['Integration','Status','Assignee','Due Date','Latest Update']],
-        body:(c.integrations||[]).map(i=>[i.name,i.status,i.assignee||'—',i.dueDate?fmtDate(i.dueDate):'—',(i.timeline||[])[0]?.update?.slice(0,80)||'—']),
+        body:(c.integrations||[]).map(i=>{const latest=(i.timeline||[])[0];return[i.name,i.status,i.assignee||'—',i.dueDate?fmtDate(i.dueDate):'—',latest?`(${fmtDate(latest.date)}) ${(latest.update||'').slice(0,70)}`:'—'];}),
         headStyles:{fillColor:NV,textColor:[255,255,255],fontStyle:'bold',fontSize:9},styles:{fontSize:8,cellPadding:3},
         didParseCell:d=>{if(d.section==='body'&&d.column.index===1){const rgb=SRGB[d.cell.raw];if(rgb){d.cell.styles.textColor=rgb;d.cell.styles.fontStyle='bold';}}},
         didDrawPage:()=>drawHdr('Integrations',c.name)});
