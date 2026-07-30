@@ -80,15 +80,15 @@ function renderImplClientDetail(clientId){
     </div>
   </div>
   ${pr.total>0?`<div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-5"><div class="h-full bg-[#0e7490] rounded-full bar-fill" style="width:${pr.pct}%"></div></div>`:''}
-  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden overflow-x-auto${bulk?' ring-2 ring-amber-300':''}">
-    <table class="w-full text-sm">
-      <thead class="border-b border-gray-100 bg-gray-50 sticky-head">
-        <tr><th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide sticky left-0 bg-gray-50 min-w-[160px]">Module</th>
-        ${PHASES.map(ph=>`<th class="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[120px]">${ph}</th>`).join('')}</tr>
+  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden overflow-x-auto${bulk?' ring-2 ring-amber-300':''}" style="padding:18px 18px 22px;">
+    <table class="w-full text-sm" style="border-collapse:separate;border-spacing:6px 8px;">
+      <thead>
+        <tr><th class="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide sticky left-0 bg-white min-w-[150px]">Module</th>
+        ${PHASES.map(ph=>`<th class="text-center text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[64px]" style="font-size:10px;">${esc(ph)}</th>`).join('')}</tr>
       </thead>
-      <tbody class="divide-y divide-gray-50">
-        ${(c.modules||[]).length?(c.modules||[]).map(m=>`<tr>
-          <td class="px-4 py-3 font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white">
+      <tbody>
+        ${(c.modules||[]).length?(c.modules||[]).map((m,mi)=>`<tr class="heat-row">
+          <td class="font-medium text-gray-900 whitespace-nowrap sticky left-0 bg-white">
             <div class="flex items-center justify-between gap-2">
               <span>${esc(m.name)}</span>
               ${!bulk&&can('admin')?`<button data-act="delete-impl-module" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" title="Delete module" class="text-gray-200 hover:text-rose-500 transition text-sm leading-none shrink-0">✕</button>`:''}
@@ -99,31 +99,32 @@ function renderImplClientDetail(clientId){
             const isDone=ph.status==='Completed';
             const key=`${m.id}:${phName}`;
             const isSel=sel.has(key);
+            const bg=ph.status==='Not Started'?'#e5e7eb':`#${SHEX[ph.status]||'64748b'}`;
+            const overdue=ph.targetDate&&!isDone&&new Date(ph.targetDate)<new Date();
+            const tip=`<div class="heat-tip">
+              <div class="tip-title">${esc(phName)}</div>
+              <div class="tip-meta"><span class="${ph.status==='At Risk'?'rag-red':ph.status==='Delayed'?'rag-amber':''}">${esc(ph.status)}</span>${ph.assignee?` · ${esc(ph.assignee)}`:''}${ph.targetDate?` · due ${fmtDate(ph.targetDate)}${overdue?' (overdue)':''}`:''} · ${(ph.updates||[]).length} update${(ph.updates||[]).length!==1?'s':''}</div>
+            </div>`;
             if(bulk){
               if(isDone){
-                return`<td class="px-2 py-2 text-center opacity-30" title="Already completed">
-                  ${sbadge(ph.status)}
+                return`<td class="text-center">
+                  <div class="heat-cell" style="background:${bg};opacity:.35;cursor:default;" title="Already completed">${tip}</div>
                 </td>`;
               }
-              return`<td class="px-2 py-2 text-center">
-                <button data-act="toggle-bulk-phase" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" data-phase="${esc(phName)}" class="w-full relative group">
-                  <div class="absolute inset-0.5 rounded-lg pointer-events-none ${isSel?'ring-2 ring-[#0e7490] ring-offset-1 bg-[#0e7490]/5':'group-hover:ring-1 group-hover:ring-amber-300 group-hover:bg-amber-50'}"></div>
-                  ${sbadge(ph.status)}
-                  <div class="text-[10px] font-semibold mt-0.5 ${isSel?'text-[#0e7490]':'text-gray-300'}">${isSel?'✓ Selected':'tap to select'}</div>
-                </button>
+              return`<td class="text-center">
+                <button data-act="toggle-bulk-phase" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" data-phase="${esc(phName)}" class="heat-cell ${isSel?'heat-selected':''}" style="background:${bg};">${tip}</button>
               </td>`;
             }
-            return`<td class="px-2 py-2 text-center">
-              <button data-act="open-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" data-phase="${esc(phName)}" class="w-full">
-                ${sbadge(ph.status)}
-                ${ph.updates?.length?`<div class="text-[10px] text-gray-400 mt-0.5">${ph.updates.length} update${ph.updates.length!==1?'s':''}</div>`:''}
-                ${ph.assignee?`<div class="text-[10px] text-gray-400 truncate mt-0.5" title="${esc(ph.assignee)}">${esc(ph.assignee)}</div>`:''}
-              </button>
+            return`<td class="text-center">
+              <button data-act="open-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(m.id)}" data-phase="${esc(phName)}" class="heat-cell" style="background:${bg};">${tip}</button>
             </td>`;
           }).join('')}
         </tr>`).join(''):`<tr><td colspan="${PHASES.length+1}" class="text-center py-12 text-gray-400 text-sm">${emptyIcon('inbox')}No modules yet. Add one to start tracking phases.</td></tr>`}
       </tbody>
     </table>
+    ${(c.modules||[]).length?`<div class="flex items-center gap-4 flex-wrap px-1 pt-2 mt-1 border-t border-gray-50" style="font-size:11px;">
+      ${STATUSES.map(s=>`<span class="flex items-center gap-1.5 text-gray-500"><span style="width:9px;height:9px;border-radius:3px;background:${s==='Not Started'?'#e5e7eb':`#${SHEX[s]}`};display:inline-block;"></span>${esc(s)}</span>`).join('')}
+    </div>`:''}
   </div>
   ${bulk?`<div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-xl px-6 py-4 flex items-center justify-between gap-4">
     <div class="flex items-center gap-3">
