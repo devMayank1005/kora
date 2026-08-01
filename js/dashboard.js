@@ -41,51 +41,7 @@ function renderDashboard() {
   const openAmsEntries = allAmsEntries.filter(e => e.entryStatus !== 'Closed');
   const isL3orL4 = e => { const q = e.queryLevel || ''; return q.includes('L3') || q.includes('L4'); };
 
-  const workload = {};
-  const wAdd = (bucket, name, item) => {
-    const nm = (name || '').trim();
-    const key = nm || '__unassigned__';
-    if (!workload[key]) workload[key] = { name: nm || 'Unassigned', unassigned: !nm, integ: [], phase: [], ams: [], total: 0 };
-    workload[key][bucket].push(item); workload[key].total++;
-  };
-  all.filter(i => !['Completed', 'Cancelled'].includes(i.status)).forEach(i => wAdd('integ', i.assignee, i));
-  implClients.forEach(c => (c.modules || []).forEach(m => (m.phases || []).forEach(ph => { if (ph.status !== 'Completed' && ph.status !== 'Not Started') wAdd('phase', ph.assignee, { ...ph, clientName: c.name, moduleName: m.name }); })));
-  amsClients.forEach(c => (c.workLog || []).forEach(e => { if (e.entryStatus !== 'Closed') { const rb = entryRaisedBy(e); wAdd('ams', rb === '—' ? '' : rb, { ...e, clientName: c.name }); } }));
-  let workloadRows = Object.values(workload);
-  if (S.dashAssigneeSearch.trim()) {
-    const q = S.dashAssigneeSearch.toLowerCase();
-    workloadRows = workloadRows.filter(w => w.name.toLowerCase().includes(q) || [...w.integ, ...w.phase, ...w.ams].some(it => (it.name || '').toLowerCase().includes(q)));
-  }
-  if (S.dashAssigneeFilter !== 'all') workloadRows = workloadRows.filter(w => w[S.dashAssigneeFilter].length > 0);
-  workloadRows = sortGeneric(workloadRows, S.dashAssigneeSort, { name: w => w.name, total: w => w.total, integ: w => w.integ.length, phase: w => w.phase.length, ams: w => w.ams.length, _default: w => w.total });
-  workloadRows.sort((a, b) => (a.unassigned && !b.unassigned) ? -1 : (!a.unassigned && b.unassigned) ? 1 : 0);
-
-  // ─── TEAM BANDWIDTH (capacity load, separate section from Workload above) ───
-  const cw = S.capacityWeights;
-  const capacity = {};
-  const capAdd = (name, type, amount, detail) => {
-    const nm = (name || '').trim(); if (!nm) return; // capacity view only makes sense for named people, unlike the Workload list which flags unassigned work
-    if (!capacity[nm]) capacity[nm] = { name: nm, module: 0, pmo: 0, integ: 0, ams: 0, total: 0, details: [] };
-    capacity[nm][type] += amount; capacity[nm].total += amount;
-    if (detail) capacity[nm].details.push({ type, amount, detail });
-  };
-  // Module load: 1.0 per DISTINCT module the person owns any active phase in — dedup by (assignee, moduleId), not per-phase.
-  const seenModulePairs = new Set();
-  implClients.forEach(c => (c.modules || []).forEach(m => (m.phases || []).forEach(ph => {
-    if (ph.status === 'Completed' || ph.status === 'Not Started' || !ph.assignee) return;
-    const key = `${ph.assignee.trim()}::${m.id}`;
-    if (seenModulePairs.has(key)) return; seenModulePairs.add(key);
-    capAdd(ph.assignee, 'module', cw.module, `${m.name} · ${c.name}`);
-  })));
-  // PMO load: 0.5 per client where they're the Implementation master assignee.
-  implClients.forEach(c => { if (c.masterAssignee) capAdd(c.masterAssignee, 'pmo', cw.pmo, `PMO · ${c.name}`); });
-  // Integration load: sum of each integration's own effort dropdown (default 0.5 if never set).
-  all.filter(i => !['Completed', 'Cancelled'].includes(i.status)).forEach(i => { if (i.assignee) capAdd(i.assignee, 'integ', i.effortWeight ?? 0.5, `${i.name} · ${i.clientName}`); });
-  // AMS load: 0.25 per open ticket where they're Raised/Attended By.
-  openAmsEntries.forEach(e => { const rb = entryRaisedBy(e); if (rb && rb !== '—') capAdd(rb, 'ams', cw.ams, `${e.description || 'AMS ticket'} · ${e.clientName}`); });
-  let capacityRows = Object.values(capacity).sort((a, b) => b.total - a.total);
-  const available = capacityRows.filter(r => r.total < cw.cap * 0.6);
-  const stretched = capacityRows.filter(r => r.total >= cw.cap * 0.9);
+  const isAdmin = can('admin');
 
   const rankRag = v => v == null ? 1 : ({ Red: 0, Amber: 1, Green: 2 }[v] ?? 1);
   const healthRows = S.clients.map(c => {
@@ -162,6 +118,260 @@ function renderDashboard() {
   healthRows.forEach(r => { healthSplit[r.overall] = (healthSplit[r.overall] || 0) + 1; });
   const l3l4OpenCount = openAmsEntries.filter(isL3orL4).length;
 
+  // ─── SECTIONS ─────────────────────────────────────────────────────
+  // Each dashboard block below is built as a standalone string keyed by its
+  // DASH_TILE_REGISTRY id (see core.js), so the person's saved drag-and-drop
+  // order/visibility (getDashLayout()) decides what actually renders and in
+  // what sequence — nothing here is a fixed position anymore except the top
+  // KPI strip, which stays as a header rather than a reorderable tile.
+  const sections = {};
+
+  sections['critical-items'] = `<div class="bento p-5 mb-4">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-bold text-sm flex items-center gap-2" style="color:var(--dink)"><span class="dot2" style="background:var(--dd)"></span>⚠️ Critical Items — start here</h3>
+      <span class="chip2" style="background:rgba(220,38,38,.08);color:var(--dd)">${criticalItems.length}</span>
+    </div>
+    <div class="scrollbox">
+      <div class="flex" style="border-bottom:1px solid var(--dborder)">
+        <div class="hd2 w-24 px-2 py-1.5">Domain</div><div class="hd2 flex-1 px-2 py-1.5">Item</div><div class="hd2 w-28 px-2 py-1.5">Client</div><div class="hd2 w-40 px-2 py-1.5">Age / Detail</div><div class="hd2 w-24 px-2 py-1.5">Owner</div>
+      </div>
+      ${criticalItems.length ? criticalItems.map(it => `<div class="row2" data-act="${it.act}" data-cid="${esc(it.cid)}" data-id="${esc(it.cid)}" ${it.iid ? `data-iid="${esc(it.iid)}"` : ''}>
+        <div class="w-24 px-2"><span class="chip2" style="background:${it.severity === 0 ? 'rgba(220,38,38,.08)' : 'rgba(217,119,6,.1)'};color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.domain)}</span></div>
+        <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)" title="${esc(it.title)}">${esc(it.title)}</div>
+        <div class="w-28 px-2 truncate" style="color:var(--dmute)">${esc(it.client)}</div>
+        <div class="w-40 px-2 font-semibold truncate" style="color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.detail)}</div>
+        <div class="w-24 px-2 truncate" style="color:var(--dmute)">${esc(it.owner)}</div>
+      </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">Nothing critical right now 🎉</div>`}
+    </div>
+  </div>`;
+
+  sections['health-scorecard'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-2" style="color:var(--dink)">Portfolio Health Scorecard</h3>
+    <div class="scrollbox">
+      <div class="flex" style="border-bottom:1px solid var(--dborder)">
+        <div class="hd2 flex-1 px-2 py-1.5">Client</div><div class="hd2 w-10 px-2 py-1.5 text-center">Int</div><div class="hd2 w-10 px-2 py-1.5 text-center">Impl</div><div class="hd2 w-10 px-2 py-1.5 text-center">AMS</div><div class="hd2 w-16 px-2 py-1.5 text-right">Trend</div>
+      </div>
+      ${healthRows.length ? healthRows.map(r => `<div class="row2" data-act="open-client" data-id="${esc(r.id)}">
+        <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)">${esc(r.name)}</div>
+        <div class="w-10 px-2 text-center">${r.integR ? `<span class="dot2" style="background:${RAG_HEX[r.integR]}"></span>` : ''}</div>
+        <div class="w-10 px-2 text-center">${r.implR ? `<span class="dot2" style="background:${RAG_HEX[r.implR]}"></span>` : ''}</div>
+        <div class="w-10 px-2 text-center">${r.amsR ? `<span class="dot2" style="background:${RAG_HEX[r.amsR]}"></span>` : ''}</div>
+        <div class="w-16 px-2 text-right font-semibold" style="color:${r.trend === 'worse' ? 'var(--dd)' : r.trend === 'better' ? 'var(--da)' : 'var(--dmute)'}">${r.trend === 'worse' ? '↓ worse' : r.trend === 'better' ? '↑ better' : r.trend === 'new' ? '— new' : '→ same'}</div>
+      </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">No client health data yet</div>`}
+    </div>
+    <div class="text-[11px] mt-2 pt-2" style="color:var(--dmute);border-top:1px solid var(--dborder)">Trend sharpens as daily snapshots accumulate</div>
+  </div>`;
+
+  sections['upcoming-deadlines'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-2" style="color:var(--dink)">Upcoming Deadlines — next 14 days</h3>
+    <div class="scrollbox">
+      ${upcoming.length ? upcoming.map(u => `<div class="row2" style="cursor:default">
+        <div class="w-16 px-2 font-semibold" style="color:var(--dp)">${fmtDate(u.date)}</div>
+        <div class="flex-1 px-2 truncate" style="color:var(--dink)" title="${esc(u.title)}">${esc(u.title)}</div>
+        <div class="w-24 px-2 truncate" style="color:var(--dmute)">${esc(u.client)}</div>
+        <div class="w-20 px-2"><span class="chip2" style="background:rgba(37,99,235,.08);color:var(--${TAG_COLOR[u.tag]})">${u.tag}</span></div>
+      </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">Nothing due in the next 14 days</div>`}
+    </div>
+  </div>`;
+
+  sections['ams-workmix'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">AMS Work-Mix</h3>
+    ${workMixSorted.length ? `<div class="space-y-2">
+      ${workMixSorted.map(([type, hrs]) => { const pct = workMixTotal ? Math.round(hrs / workMixTotal * 100) : 0; const c = ['Bug Fix', 'Support Ticket'].includes(type) ? 'var(--dd)' : 'var(--dp)'; return `<div><div class="flex justify-between text-xs mb-1"><span style="color:var(--dink)">${esc(type)}</span><span class="font-semibold" style="color:${c}">${pct}%</span></div><div class="h-1.5 rounded-full overflow-hidden" style="background:var(--dborder)"><div class="h-full" style="width:${pct}%;background:${c}"></div></div></div>`; }).join('')}
+    </div>
+    <div class="text-[11px] mt-3 pt-2" style="color:var(--dmute);border-top:1px solid var(--dborder)">${reactivePct}% reactive (Bug Fix + Support) vs ${100 - reactivePct}% proactive</div>` : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No AMS hours logged yet</div>`}
+  </div>`;
+
+  sections['severity-aging'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Severity &amp; Aging</h3>
+    ${severityTotal > 1 ? `<div class="flex gap-1 h-3 rounded-full overflow-hidden mb-2" style="background:var(--dborder)">
+      ${AMS_QUERY_LEVELS.map(l => severityDist[l] ? `<div style="width:${Math.round(severityDist[l] / severityTotal * 100)}%;background:${SEV_COLOR[l]}" title="${l}: ${severityDist[l]}"></div>` : '').join('')}
+    </div>
+    <div class="flex flex-wrap gap-2 text-[11px] mb-3">
+      ${AMS_QUERY_LEVELS.map(l => `<span style="color:${SEV_COLOR[l]}">${l.split(' - ')[0]}: ${Math.round(severityDist[l] / severityTotal * 100)}%</span>`).join('')}
+    </div>
+    ${oldestCritical !== undefined ? `<div class="text-xs font-semibold" style="color:var(--dd)">Oldest open L3/L4 ticket: ${oldestCritical}d</div>` : `<div class="text-xs" style="color:var(--da)">No open L3/L4 tickets ✓</div>`}` : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No AMS entries yet</div>`}
+  </div>`;
+
+  sections['phase-funnel'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Phase-Stage Funnel</h3>
+    ${funnelSorted.length ? `<div class="space-y-1.5">
+      ${funnelSorted.map(([name, n]) => `<div class="flex items-center gap-2 text-[11px]"><span class="w-24 truncate" style="color:${name === funnelMax[0] ? 'var(--dink)' : 'var(--dmute)'};font-weight:${name === funnelMax[0] ? 600 : 400}">${esc(name)}</span><div class="flex-1 h-2.5 rounded" style="background:var(--dborder)"><div class="h-full rounded" style="width:${Math.round(n / funnelTotal * 100)}%;background:${name === funnelMax[0] ? 'var(--dd)' : 'var(--dp)'}"></div></div><span class="w-4 text-right" style="color:var(--dmute)">${n}</span></div>`).join('')}
+    </div>
+    <div class="text-[11px] mt-2 pt-2" style="color:var(--dd);border-top:1px solid var(--dborder)">Bottleneck: ${Math.round(funnelMax[1] / funnelTotal * 100)}% of active phases stuck at ${esc(funnelMax[0])}</div>` : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No active phases in progress</div>`}
+  </div>`;
+
+  sections['financial-rollup'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Financial Rollup</h3>
+    ${isAdmin ? `<div class="grid grid-cols-2 gap-2 mb-3">
+      <div class="rounded-xl p-3" style="background:rgba(5,150,105,.06)"><div class="text-lg font-extrabold" style="color:var(--da)">${amsRevenueINR ? `₹${amsRevenueINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}</div><div class="text-[11px]" style="color:var(--dmute)">Billable (INR)</div></div>
+      <div class="rounded-xl p-3" style="background:rgba(5,150,105,.06)"><div class="text-lg font-extrabold" style="color:var(--da)">${amsRevenueUSD ? `$${amsRevenueUSD.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}</div><div class="text-[11px]" style="color:var(--dmute)">Billable (USD)</div></div>
+    </div>`: `<div class="rounded-xl p-3 mb-3" style="background:rgba(37,99,235,.06)"><div class="text-lg font-extrabold" style="color:var(--dp)">${amsHoursThisMonth.toFixed(1)}h</div><div class="text-[11px]" style="color:var(--dmute)">Hours this month</div></div>`}
+    ${amsLowBalance.length ? `<div class="text-xs font-semibold" style="color:var(--dd)">⚠ ${amsLowBalance.length} client pool${amsLowBalance.length !== 1 ? 's' : ''} running low</div>` : amsClients.length ? `<div class="text-xs" style="color:var(--da)">All hour pools healthy ✓</div>` : ''}
+  </div>`;
+
+  sections['data-hygiene'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Data Hygiene Score</h3>
+    <div class="flex items-center gap-3 mb-2">
+      <div class="text-3xl font-extrabold" style="color:${hygieneScore >= 80 ? 'var(--da)' : hygieneScore >= 60 ? 'var(--damber)' : 'var(--dd)'}">${hygieneScore}%</div>
+      <div class="text-xs" style="color:var(--dmute)">of items fully tracked</div>
+    </div>
+    <div class="text-[11px] space-y-1" style="color:var(--dmute)">
+      <div>${Math.round((1 - hyg.assignee) * 100)}% missing assignee</div>
+      <div>${Math.round((1 - hyg.due) * 100)}% missing due date</div>
+      <div>${Math.round((1 - hyg.fresh) * 100)}% no update in 30+ days</div>
+    </div>
+  </div>`;
+
+  sections['blockers'] = `<div class="bento p-5 mb-4">
+    <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Blockers / Dependencies</h3>
+    ${blockers.length ? blockers.slice(0, 5).map(b => `<div class="row2" style="cursor:default"><div class="flex-1 truncate text-xs" style="color:var(--dink)">${esc(b.client)} — ${esc(b.text)}</div></div>`).join('') : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No blockers flagged ✓</div>`}
+  </div>`;
+
+  // ── Admin-only: Workload by Assignee + Team Bandwidth ──────────────
+  // Deliberately not computed at all for non-admins, not just visually
+  // hidden — this is who's-assigned-what and per-person capacity, which
+  // is sole-admin planning data, not something the team should see about
+  // each other. (Note: like the rest of Kora's role model, this is a
+  // UI-layer restriction — S.clients itself is loaded fully to every
+  // authenticated session, same as e.g. Financial Rollup's admin gating
+  // above. Real per-role data segregation would need read.js changes,
+  // consistent with how the rest of the app already works today.)
+  if (isAdmin) {
+    const workload = {};
+    const wAdd = (bucket, name, item) => {
+      const nm = (name || '').trim();
+      const key = nm || '__unassigned__';
+      if (!workload[key]) workload[key] = { name: nm || 'Unassigned', unassigned: !nm, integ: [], phase: [], ams: [], total: 0 };
+      workload[key][bucket].push(item); workload[key].total++;
+    };
+    all.filter(i => !['Completed', 'Cancelled'].includes(i.status)).forEach(i => wAdd('integ', i.assignee, i));
+    implClients.forEach(c => (c.modules || []).forEach(m => (m.phases || []).forEach(ph => { if (ph.status !== 'Completed' && ph.status !== 'Not Started') wAdd('phase', ph.assignee, { ...ph, clientName: c.name, moduleName: m.name }); })));
+    amsClients.forEach(c => (c.workLog || []).forEach(e => { if (e.entryStatus !== 'Closed') { const rb = entryRaisedBy(e); wAdd('ams', rb === '—' ? '' : rb, { ...e, clientName: c.name }); } }));
+    let workloadRows = Object.values(workload);
+    if (S.dashAssigneeSearch.trim()) {
+      const q = S.dashAssigneeSearch.toLowerCase();
+      workloadRows = workloadRows.filter(w => w.name.toLowerCase().includes(q) || [...w.integ, ...w.phase, ...w.ams].some(it => (it.name || '').toLowerCase().includes(q)));
+    }
+    if (S.dashAssigneeFilter !== 'all') workloadRows = workloadRows.filter(w => w[S.dashAssigneeFilter].length > 0);
+    workloadRows = sortGeneric(workloadRows, S.dashAssigneeSort, { name: w => w.name, total: w => w.total, integ: w => w.integ.length, phase: w => w.phase.length, ams: w => w.ams.length, _default: w => w.total });
+    workloadRows.sort((a, b) => (a.unassigned && !b.unassigned) ? -1 : (!a.unassigned && b.unassigned) ? 1 : 0);
+
+    sections['workload-assignee'] = `<div class="bento p-5 mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <h3 class="font-bold text-sm" style="color:var(--dink)">Workload by Assignee</h3>
+        <span class="text-xs" style="color:var(--dmute)">${workloadRows.length} people${workloadRows.some(w => w.unassigned) ? ' · unassigned flagged' : ''}</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <input type="text" id="dash-assignee-search-inp" placeholder="Search person or item…" value="${esc(S.dashAssigneeSearch)}" data-act="dash-assignee-search" class="text-xs rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px]" style="border:1px solid var(--dborder)"/>
+        <div class="flex gap-1.5">
+          ${[['all', 'All'], ['integ', 'Integrations'], ['phase', 'Phases'], ['ams', 'AMS']].map(([k, l]) => `<button data-act="dash-assignee-filter" data-key="${esc(k)}" class="chip2" style="${S.dashAssigneeFilter === k ? 'background:var(--dink);color:#fff;' : 'background:var(--dbg);color:var(--dmute);border:1px solid var(--dborder);'}">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="scrollbox">
+        <div class="flex" style="border-bottom:1px solid var(--dborder)">
+          ${[['name', 'Person', 'flex-1'], ['integ', 'Integrations', 'w-24 text-right'], ['phase', 'Phases', 'w-20 text-right'], ['ams', 'AMS', 'w-20 text-right'], ['total', 'Total', 'w-16 text-right']].map(([k, l, w]) => `<div data-act="sort-dash-assignee" data-key="${esc(k)}" class="hd2 ${w} px-2 py-1.5 truncate">${l} ${sortArrowFor(S.dashAssigneeSort, k)}</div>`).join('')}
+          <div class="w-8"></div>
+        </div>
+        ${workloadRows.length ? workloadRows.map(w => {
+      const expanded = S.dashAssigneeExpanded.has(w.name);
+      const items = [...w.integ.map(it => ({ ...it, cat: 'Integration' })), ...w.phase.map(it => ({ ...it, cat: 'Phase' })), ...w.ams.map(it => ({ ...it, cat: 'AMS' }))];
+      const critCount = [...w.integ, ...w.phase].filter(it => it.status === 'At Risk').length + w.ams.filter(it => isL3orL4(it)).length;
+      return `<div>
+          <div class="row2" data-act="dash-assignee-toggle" data-key="${esc(w.name)}" style="${w.unassigned ? 'background:rgba(220,38,38,.04);' : ''}">
+            <div class="flex-1 px-2 font-medium truncate" style="color:${w.unassigned ? 'var(--dd)' : 'var(--dink)'}">${w.unassigned ? '⚠ ' : ''}${esc(w.name)}${critCount > 1 ? ` <span class="chip2" style="background:rgba(220,38,38,.08);color:var(--dd);font-size:9px;">${critCount} critical</span>` : ''}</div>
+            <div class="w-24 px-2 text-right" style="color:var(--dmute)">${w.integ.length || ''}</div>
+            <div class="w-20 px-2 text-right" style="color:var(--dmute)">${w.phase.length || ''}</div>
+            <div class="w-20 px-2 text-right" style="color:var(--dmute)">${w.ams.length || ''}</div>
+            <div class="w-16 px-2 text-right font-bold" style="color:var(--dink)">${w.total}</div>
+            <div class="w-8 px-2" style="color:var(--dmute)">${expanded ? '▾' : '▸'}</div>
+          </div>
+          ${expanded ? `<div class="pl-6 pr-2 py-2" style="background:var(--dbg);border-bottom:1px solid var(--dborder)">
+            ${items.map(it => `<div class="flex items-center gap-2 py-1 text-xs">
+              <span class="chip2" style="background:var(--dborder);color:var(--dmute);font-size:9px;">${it.cat}</span>
+              ${it.cat === 'Phase' && it.moduleName ? `<span class="font-medium" style="color:var(--dmute)">${esc(it.moduleName)}</span><span style="color:var(--dborder)">·</span>` : ''}
+              <span class="truncate" style="color:var(--dmute)">${esc(it.name || it.description || 'Untitled')}</span>
+              ${it.clientName ? `<span style="color:var(--dborder)">·</span><span class="font-medium truncate" style="color:var(--dmute)">${esc(it.clientName)}</span>` : ''}
+              ${it.status ? `<span style="color:var(--dmute)">· ${esc(it.status)}</span>` : ''}
+            </div>`).join('')}
+          </div>`: ''}
+        </div>`;
+    }).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">${S.dashAssigneeSearch ? 'No matches' : 'No open items assigned yet'}</div>`}
+      </div>
+    </div>`;
+
+    // ─── TEAM BANDWIDTH (capacity load) ───
+    const cw = S.capacityWeights;
+    const capacity = {};
+    const capAdd = (name, type, amount, detail) => {
+      const nm = (name || '').trim(); if (!nm) return;
+      if (!capacity[nm]) capacity[nm] = { name: nm, module: 0, pmo: 0, integ: 0, ams: 0, total: 0, details: [] };
+      capacity[nm][type] += amount; capacity[nm].total += amount;
+      if (detail) capacity[nm].details.push({ type, amount, detail });
+    };
+    const seenModulePairs = new Set();
+    implClients.forEach(c => (c.modules || []).forEach(m => (m.phases || []).forEach(ph => {
+      if (ph.status === 'Completed' || ph.status === 'Not Started' || !ph.assignee) return;
+      const key = `${ph.assignee.trim()}::${m.id}`;
+      if (seenModulePairs.has(key)) return; seenModulePairs.add(key);
+      capAdd(ph.assignee, 'module', cw.module, `${m.name} · ${c.name}`);
+    })));
+    implClients.forEach(c => { if (c.masterAssignee) capAdd(c.masterAssignee, 'pmo', cw.pmo, `PMO · ${c.name}`); });
+    all.filter(i => !['Completed', 'Cancelled'].includes(i.status)).forEach(i => { if (i.assignee) capAdd(i.assignee, 'integ', i.effortWeight ?? 0.5, `${i.name} · ${i.clientName}`); });
+    openAmsEntries.forEach(e => { const rb = entryRaisedBy(e); if (rb && rb !== '—') capAdd(rb, 'ams', cw.ams, `${e.description || 'AMS ticket'} · ${e.clientName}`); });
+    let capacityRows = Object.values(capacity).sort((a, b) => b.total - a.total);
+    const available = capacityRows.filter(r => r.total < cw.cap * 0.6);
+    const stretched = capacityRows.filter(r => r.total >= cw.cap * 0.9);
+
+    sections['team-bandwidth'] = `<div class="bento p-5 mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h3 class="font-bold text-sm" style="color:var(--dink)">Team Bandwidth</h3>
+          <p class="text-xs mt-0.5" style="color:var(--dmute)">Module = ${cw.module} · PMO = ${cw.pmo} · AMS ticket = ${cw.ams} · Integration = per-item · Cap = ${cw.cap}</p>
+        </div>
+        <button data-act="modal-open" data-modal="capacity-weights" class="text-xs font-medium px-3 py-1.5 rounded-lg shrink-0" style="border:1px solid var(--dborder);color:var(--dmute)">⚙ Configure weights</button>
+      </div>
+      ${capacityRows.length ? `<div class="grid grid-cols-2 gap-4 my-4">
+        <div class="rounded-xl p-3" style="background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.15)">
+          <div class="text-xs font-semibold mb-1.5" style="color:var(--da)">✓ Available capacity (${available.length})</div>
+          <div class="text-xs leading-relaxed" style="color:var(--dmute)">${available.length ? available.map(r => `${esc(r.name)} (${r.total.toFixed(2)})`).join(', ') : 'Nobody has meaningful spare capacity right now'}</div>
+        </div>
+        <div class="rounded-xl p-3" style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.15)">
+          <div class="text-xs font-semibold mb-1.5" style="color:var(--dd)">⚠ Stretched (${stretched.length})</div>
+          <div class="text-xs leading-relaxed" style="color:var(--dmute)">${stretched.length ? stretched.map(r => `${esc(r.name)} (${r.total.toFixed(2)})`).join(', ') : 'Nobody is at or near capacity'}</div>
+        </div>
+      </div>`: ''}
+      <div class="scrollbox">
+        ${capacityRows.length ? capacityRows.map(r => {
+      const pct = Math.min(100, r.total / cw.cap * 100);
+      const over = r.total > cw.cap;
+      const barColor = over ? 'var(--dd)' : pct >= 90 ? 'var(--damber)' : 'var(--da)';
+      const expanded = S.dashCapacityExpanded.has(r.name);
+      return `<div>
+          <div class="row2" data-act="dash-capacity-toggle" data-key="${esc(r.name)}">
+            <div class="w-32 px-2 truncate font-medium" style="color:var(--dink)">${esc(r.name)}</div>
+            <div class="flex-1 px-2 h-2 rounded-full overflow-hidden" style="background:var(--dborder)"><div class="h-full rounded-full" style="width:${pct}%;background:${barColor}"></div></div>
+            <div class="w-20 px-2 text-right font-semibold" style="color:${over ? 'var(--dd)' : 'var(--dink)'}">${r.total.toFixed(2)} / ${cw.cap}</div>
+            <div class="w-6 px-2 text-right" style="color:var(--dmute)">${expanded ? '▾' : '▸'}</div>
+          </div>
+          ${expanded ? `<div class="pl-6 pr-2 py-2" style="background:var(--dbg);border-bottom:1px solid var(--dborder)">
+            <div class="flex flex-wrap gap-x-4 gap-y-1">
+              ${r.details.map(d => `<span class="text-xs" style="color:var(--dmute)"><span class="chip2" style="background:var(--dborder);font-size:9px;color:var(--dmute);">${d.amount}</span> ${esc(d.detail)}</span>`).join('')}
+            </div>
+          </div>`: ''}
+        </div>`;
+    }).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">No active assignments to compute bandwidth from yet</div>`}
+      </div>
+    </div>`;
+  }
+
+  // ─── ASSEMBLE, in the person's saved order, admin-only tiles filtered out for non-admins ───
+  const layout = getDashLayout().filter(t => {
+    const reg = DASH_TILE_REGISTRY.find(r => r.id === t.id);
+    return reg && t.visible && (!reg.adminOnly || isAdmin);
+  });
+  const orderedSections = layout.map(t => sections[t.id] || '').join('');
+
   return `<div class="k-page fade kdash2">
   <style>
     .kdash2{--dp:#2563EB;--da:#059669;--dd:#DC2626;--damber:#D97706;--dbg:#F8FAFC;--dcard:#FFFFFF;--dborder:#E4ECFC;--dmute:#64748B;--dink:#0F172A;}
@@ -181,7 +391,10 @@ function renderDashboard() {
       <h1 class="text-2xl font-extrabold" style="color:var(--dink)">Dashboard</h1>
       <p class="text-sm mt-0.5" style="color:var(--dmute)">Portfolio overview — sorted worst-first</p>
     </div>
-    ${can('admin') ? `<button data-act="portfolio-export" class="text-sm font-semibold text-white px-4 py-2.5 rounded-xl" style="background:var(--dp)">Portfolio Export</button>` : ''}
+    <div class="flex items-center gap-2">
+      <button data-act="modal-open" data-modal="dashboard-layout" class="text-sm font-medium px-3.5 py-2 rounded-xl" style="border:1px solid var(--dborder);color:var(--dmute);background:var(--dcard)">⠿ Customize</button>
+      ${isAdmin ? `<button data-act="portfolio-export" class="text-sm font-semibold text-white px-4 py-2.5 rounded-xl" style="background:var(--dp)">Portfolio Export</button>` : ''}
+    </div>
   </div>
 
   <div class="grid grid-cols-6 gap-3 mb-4">
@@ -199,192 +412,6 @@ function renderDashboard() {
     <div class="bento p-4"><div class="text-3xl font-extrabold" style="color:${hygieneScore >= 80 ? 'var(--da)' : hygieneScore >= 60 ? 'var(--damber)' : 'var(--dd)'}">${hygieneScore}%</div><div class="text-xs font-medium mt-1" style="color:var(--dmute)">Data Hygiene Score</div></div>
   </div>
 
-  <div class="bento p-5 mb-4">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-bold text-sm flex items-center gap-2" style="color:var(--dink)"><span class="dot2" style="background:var(--dd)"></span>⚠️ Critical Items — start here</h3>
-      <span class="chip2" style="background:rgba(220,38,38,.08);color:var(--dd)">${criticalItems.length}</span>
-    </div>
-    <div class="scrollbox">
-      <div class="flex" style="border-bottom:1px solid var(--dborder)">
-        <div class="hd2 w-24 px-2 py-1.5">Domain</div><div class="hd2 flex-1 px-2 py-1.5">Item</div><div class="hd2 w-28 px-2 py-1.5">Client</div><div class="hd2 w-40 px-2 py-1.5">Age / Detail</div><div class="hd2 w-24 px-2 py-1.5">Owner</div>
-      </div>
-      ${criticalItems.length ? criticalItems.map(it => `<div class="row2" data-act="${it.act}" data-cid="${esc(it.cid)}" data-id="${esc(it.cid)}" ${it.iid ? `data-iid="${esc(it.iid)}"` : ''}>
-        <div class="w-24 px-2"><span class="chip2" style="background:${it.severity === 0 ? 'rgba(220,38,38,.08)' : 'rgba(217,119,6,.1)'};color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.domain)}</span></div>
-        <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)" title="${esc(it.title)}">${esc(it.title)}</div>
-        <div class="w-28 px-2 truncate" style="color:var(--dmute)">${esc(it.client)}</div>
-        <div class="w-40 px-2 font-semibold truncate" style="color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.detail)}</div>
-        <div class="w-24 px-2 truncate" style="color:var(--dmute)">${esc(it.owner)}</div>
-      </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">Nothing critical right now 🎉</div>`}
-    </div>
-  </div>
-
-  <div class="grid grid-cols-2 gap-4 mb-4">
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-2" style="color:var(--dink)">Portfolio Health Scorecard</h3>
-      <div class="scrollbox">
-        <div class="flex" style="border-bottom:1px solid var(--dborder)">
-          <div class="hd2 flex-1 px-2 py-1.5">Client</div><div class="hd2 w-10 px-2 py-1.5 text-center">Int</div><div class="hd2 w-10 px-2 py-1.5 text-center">Impl</div><div class="hd2 w-10 px-2 py-1.5 text-center">AMS</div><div class="hd2 w-16 px-2 py-1.5 text-right">Trend</div>
-        </div>
-        ${healthRows.length ? healthRows.map(r => `<div class="row2" data-act="open-client" data-id="${esc(r.id)}">
-          <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)">${esc(r.name)}</div>
-          <div class="w-10 px-2 text-center">${r.integR ? `<span class="dot2" style="background:${RAG_HEX[r.integR]}"></span>` : ''}</div>
-          <div class="w-10 px-2 text-center">${r.implR ? `<span class="dot2" style="background:${RAG_HEX[r.implR]}"></span>` : ''}</div>
-          <div class="w-10 px-2 text-center">${r.amsR ? `<span class="dot2" style="background:${RAG_HEX[r.amsR]}"></span>` : ''}</div>
-          <div class="w-16 px-2 text-right font-semibold" style="color:${r.trend === 'worse' ? 'var(--dd)' : r.trend === 'better' ? 'var(--da)' : 'var(--dmute)'}">${r.trend === 'worse' ? '↓ worse' : r.trend === 'better' ? '↑ better' : r.trend === 'new' ? '— new' : '→ same'}</div>
-        </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">No client health data yet</div>`}
-      </div>
-      <div class="text-[11px] mt-2 pt-2" style="color:var(--dmute);border-top:1px solid var(--dborder)">Trend sharpens as daily snapshots accumulate</div>
-    </div>
-
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-2" style="color:var(--dink)">Upcoming Deadlines — next 14 days</h3>
-      <div class="scrollbox">
-        ${upcoming.length ? upcoming.map(u => `<div class="row2" style="cursor:default">
-          <div class="w-16 px-2 font-semibold" style="color:var(--dp)">${fmtDate(u.date)}</div>
-          <div class="flex-1 px-2 truncate" style="color:var(--dink)" title="${esc(u.title)}">${esc(u.title)}</div>
-          <div class="w-24 px-2 truncate" style="color:var(--dmute)">${esc(u.client)}</div>
-          <div class="w-20 px-2"><span class="chip2" style="background:rgba(37,99,235,.08);color:var(--${TAG_COLOR[u.tag]})">${u.tag}</span></div>
-        </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">Nothing due in the next 14 days</div>`}
-      </div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-3 gap-4 mb-4">
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">AMS Work-Mix</h3>
-      ${workMixSorted.length ? `<div class="space-y-2">
-        ${workMixSorted.map(([type, hrs]) => { const pct = workMixTotal ? Math.round(hrs / workMixTotal * 100) : 0; const c = ['Bug Fix', 'Support Ticket'].includes(type) ? 'var(--dd)' : 'var(--dp)'; return `<div><div class="flex justify-between text-xs mb-1"><span style="color:var(--dink)">${esc(type)}</span><span class="font-semibold" style="color:${c}">${pct}%</span></div><div class="h-1.5 rounded-full overflow-hidden" style="background:var(--dborder)"><div class="h-full" style="width:${pct}%;background:${c}"></div></div></div>`; }).join('')}
-      </div>
-      <div class="text-[11px] mt-3 pt-2" style="color:var(--dmute);border-top:1px solid var(--dborder)">${reactivePct}% reactive (Bug Fix + Support) vs ${100 - reactivePct}% proactive</div>` : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No AMS hours logged yet</div>`}
-    </div>
-
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Severity &amp; Aging</h3>
-      ${severityTotal > 1 ? `<div class="flex gap-1 h-3 rounded-full overflow-hidden mb-2" style="background:var(--dborder)">
-        ${AMS_QUERY_LEVELS.map(l => severityDist[l] ? `<div style="width:${Math.round(severityDist[l] / severityTotal * 100)}%;background:${SEV_COLOR[l]}" title="${l}: ${severityDist[l]}"></div>` : '').join('')}
-      </div>
-      <div class="flex flex-wrap gap-2 text-[11px] mb-3">
-        ${AMS_QUERY_LEVELS.map(l => `<span style="color:${SEV_COLOR[l]}">${l.split(' - ')[0]}: ${Math.round(severityDist[l] / severityTotal * 100)}%</span>`).join('')}
-      </div>
-      ${oldestCritical !== undefined ? `<div class="text-xs font-semibold" style="color:var(--dd)">Oldest open L3/L4 ticket: ${oldestCritical}d</div>` : `<div class="text-xs" style="color:var(--da)">No open L3/L4 tickets ✓</div>`}` : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No AMS entries yet</div>`}
-    </div>
-
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Phase-Stage Funnel</h3>
-      ${funnelSorted.length ? `<div class="space-y-1.5">
-        ${funnelSorted.map(([name, n]) => `<div class="flex items-center gap-2 text-[11px]"><span class="w-24 truncate" style="color:${name === funnelMax[0] ? 'var(--dink)' : 'var(--dmute)'};font-weight:${name === funnelMax[0] ? 600 : 400}">${esc(name)}</span><div class="flex-1 h-2.5 rounded" style="background:var(--dborder)"><div class="h-full rounded" style="width:${Math.round(n / funnelTotal * 100)}%;background:${name === funnelMax[0] ? 'var(--dd)' : 'var(--dp)'}"></div></div><span class="w-4 text-right" style="color:var(--dmute)">${n}</span></div>`).join('')}
-      </div>
-      <div class="text-[11px] mt-2 pt-2" style="color:var(--dd);border-top:1px solid var(--dborder)">Bottleneck: ${Math.round(funnelMax[1] / funnelTotal * 100)}% of active phases stuck at ${esc(funnelMax[0])}</div>` : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No active phases in progress</div>`}
-    </div>
-  </div>
-
-  <div class="grid grid-cols-3 gap-4 mb-4">
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Financial Rollup</h3>
-      ${can('admin') ? `<div class="grid grid-cols-2 gap-2 mb-3">
-        <div class="rounded-xl p-3" style="background:rgba(5,150,105,.06)"><div class="text-lg font-extrabold" style="color:var(--da)">${amsRevenueINR ? `₹${amsRevenueINR.toLocaleString('en-IN', { maximumFractionDigits: 0 })}` : '—'}</div><div class="text-[11px]" style="color:var(--dmute)">Billable (INR)</div></div>
-        <div class="rounded-xl p-3" style="background:rgba(5,150,105,.06)"><div class="text-lg font-extrabold" style="color:var(--da)">${amsRevenueUSD ? `$${amsRevenueUSD.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : '—'}</div><div class="text-[11px]" style="color:var(--dmute)">Billable (USD)</div></div>
-      </div>`: `<div class="rounded-xl p-3 mb-3" style="background:rgba(37,99,235,.06)"><div class="text-lg font-extrabold" style="color:var(--dp)">${amsHoursThisMonth.toFixed(1)}h</div><div class="text-[11px]" style="color:var(--dmute)">Hours this month</div></div>`}
-      ${amsLowBalance.length ? `<div class="text-xs font-semibold" style="color:var(--dd)">⚠ ${amsLowBalance.length} client pool${amsLowBalance.length !== 1 ? 's' : ''} running low</div>` : amsClients.length ? `<div class="text-xs" style="color:var(--da)">All hour pools healthy ✓</div>` : ''}
-    </div>
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Data Hygiene Score</h3>
-      <div class="flex items-center gap-3 mb-2">
-        <div class="text-3xl font-extrabold" style="color:${hygieneScore >= 80 ? 'var(--da)' : hygieneScore >= 60 ? 'var(--damber)' : 'var(--dd)'}">${hygieneScore}%</div>
-        <div class="text-xs" style="color:var(--dmute)">of items fully tracked</div>
-      </div>
-      <div class="text-[11px] space-y-1" style="color:var(--dmute)">
-        <div>${Math.round((1 - hyg.assignee) * 100)}% missing assignee</div>
-        <div>${Math.round((1 - hyg.due) * 100)}% missing due date</div>
-        <div>${Math.round((1 - hyg.fresh) * 100)}% no update in 30+ days</div>
-      </div>
-    </div>
-    <div class="bento p-5">
-      <h3 class="font-bold text-sm mb-3" style="color:var(--dink)">Blockers / Dependencies</h3>
-      ${blockers.length ? blockers.slice(0, 5).map(b => `<div class="row2" style="cursor:default"><div class="flex-1 truncate text-xs" style="color:var(--dink)">${esc(b.client)} — ${esc(b.text)}</div></div>`).join('') : `<div class="text-sm text-center py-6" style="color:var(--dmute)">No blockers flagged ✓</div>`}
-    </div>
-  </div>
-
-  <div class="bento p-5">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-bold text-sm" style="color:var(--dink)">Workload by Assignee</h3>
-      <span class="text-xs" style="color:var(--dmute)">${workloadRows.length} people${workloadRows.some(w => w.unassigned) ? ' · unassigned flagged' : ''}</span>
-    </div>
-    <div class="flex flex-wrap items-center gap-2 mb-2">
-      <input type="text" id="dash-assignee-search-inp" placeholder="Search person or item…" value="${esc(S.dashAssigneeSearch)}" data-act="dash-assignee-search" class="text-xs rounded-lg px-2.5 py-1.5 focus:outline-none max-w-[220px]" style="border:1px solid var(--dborder)"/>
-      <div class="flex gap-1.5">
-        ${[['all', 'All'], ['integ', 'Integrations'], ['phase', 'Phases'], ['ams', 'AMS']].map(([k, l]) => `<button data-act="dash-assignee-filter" data-key="${esc(k)}" class="chip2" style="${S.dashAssigneeFilter === k ? 'background:var(--dink);color:#fff;' : 'background:var(--dbg);color:var(--dmute);border:1px solid var(--dborder);'}">${l}</button>`).join('')}
-      </div>
-    </div>
-    <div class="scrollbox">
-      <div class="flex" style="border-bottom:1px solid var(--dborder)">
-        ${[['name', 'Person', 'flex-1'], ['integ', 'Integrations', 'w-24 text-right'], ['phase', 'Phases', 'w-20 text-right'], ['ams', 'AMS', 'w-20 text-right'], ['total', 'Total', 'w-16 text-right']].map(([k, l, w]) => `<div data-act="sort-dash-assignee" data-key="${esc(k)}" class="hd2 ${w} px-2 py-1.5 truncate">${l} ${sortArrowFor(S.dashAssigneeSort, k)}</div>`).join('')}
-        <div class="w-8"></div>
-      </div>
-      ${workloadRows.length ? workloadRows.map(w => {
-    const expanded = S.dashAssigneeExpanded.has(w.name);
-    const items = [...w.integ.map(it => ({ ...it, cat: 'Integration' })), ...w.phase.map(it => ({ ...it, cat: 'Phase' })), ...w.ams.map(it => ({ ...it, cat: 'AMS' }))];
-    const critCount = [...w.integ, ...w.phase].filter(it => it.status === 'At Risk').length + w.ams.filter(it => isL3orL4(it)).length;
-    return `<div>
-          <div class="row2" data-act="dash-assignee-toggle" data-key="${esc(w.name)}" style="${w.unassigned ? 'background:rgba(220,38,38,.04);' : ''}">
-            <div class="flex-1 px-2 font-medium truncate" style="color:${w.unassigned ? 'var(--dd)' : 'var(--dink)'}">${w.unassigned ? '⚠ ' : ''}${esc(w.name)}${critCount > 1 ? ` <span class="chip2" style="background:rgba(220,38,38,.08);color:var(--dd);font-size:9px;">${critCount} critical</span>` : ''}</div>
-            <div class="w-24 px-2 text-right" style="color:var(--dmute)">${w.integ.length || ''}</div>
-            <div class="w-20 px-2 text-right" style="color:var(--dmute)">${w.phase.length || ''}</div>
-            <div class="w-20 px-2 text-right" style="color:var(--dmute)">${w.ams.length || ''}</div>
-            <div class="w-16 px-2 text-right font-bold" style="color:var(--dink)">${w.total}</div>
-            <div class="w-8 px-2" style="color:var(--dmute)">${expanded ? '▾' : '▸'}</div>
-          </div>
-          ${expanded ? `<div class="pl-6 pr-2 py-2" style="background:var(--dbg);border-bottom:1px solid var(--dborder)">
-            ${items.map(it => `<div class="flex items-center gap-2 py-1 text-xs">
-              <span class="chip2" style="background:var(--dborder);color:var(--dmute);font-size:9px;">${it.cat}</span>
-              ${it.cat === 'Phase' && it.moduleName ? `<span class="font-medium" style="color:var(--dmute)">${esc(it.moduleName)}</span><span style="color:var(--dborder)">·</span>` : ''}
-              <span class="truncate" style="color:var(--dmute)">${esc(it.name || it.description || 'Untitled')}</span>
-              ${it.clientName ? `<span style="color:var(--dborder)">·</span><span class="font-medium truncate" style="color:var(--dmute)">${esc(it.clientName)}</span>` : ''}
-              ${it.status ? `<span style="color:var(--dmute)">· ${esc(it.status)}</span>` : ''}
-            </div>`).join('')}
-          </div>`: ''}
-        </div>`;
-  }).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">${S.dashAssigneeSearch ? 'No matches' : 'No open items assigned yet'}</div>`}
-    </div>
-  </div>
-
-  <div class="bento" style="padding-bottom:32px;">
-    <div class="flex items-center justify-between mb-3">
-      <div>
-        <h3 class="font-bold text-sm" style="color:var(--dink)">Team Bandwidth</h3>
-        <p class="text-xs mt-0.5" style="color:var(--dmute)">Module = ${cw.module} · PMO = ${cw.pmo} · AMS ticket = ${cw.ams} · Integration = per-item · Cap = ${cw.cap}</p>
-      </div>
-      ${can('admin') ? `<button data-act="modal-open" data-modal="capacity-weights" class="text-xs font-medium px-3 py-1.5 rounded-lg" style="border:1px solid var(--dborder);color:var(--dmute)">⚙ Configure weights</button>` : ''}
-    </div>
-    ${capacityRows.length ? `<div class="grid grid-cols-2 gap-4 mb-4">
-      <div class="rounded-xl p-3" style="background:rgba(5,150,105,.06);border:1px solid rgba(5,150,105,.15)">
-        <div class="text-xs font-semibold mb-1.5" style="color:var(--da)">✓ Available capacity (${available.length})</div>
-        <div class="text-xs" style="color:var(--dmute)">${available.length ? available.map(r => `${esc(r.name)} (${r.total.toFixed(2)})`).join(', ') : 'Nobody has meaningful spare capacity right now'}</div>
-      </div>
-      <div class="rounded-xl p-3" style="background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.15)">
-        <div class="text-xs font-semibold mb-1.5" style="color:var(--dd)">⚠ Stretched (${stretched.length})</div>
-        <div class="text-xs" style="color:var(--dmute)">${stretched.length ? stretched.map(r => `${esc(r.name)} (${r.total.toFixed(2)})`).join(', ') : 'Nobody is at or near capacity'}</div>
-      </div>
-    </div>`: ''}
-    <div class="scrollbox">
-      ${capacityRows.length ? capacityRows.map(r => {
-    const pct = Math.min(100, r.total / cw.cap * 100);
-    const over = r.total > cw.cap;
-    const barColor = over ? 'var(--dd)' : pct >= 90 ? 'var(--damber)' : 'var(--da)';
-    const expanded = S.dashCapacityExpanded.has(r.name);
-    return `<div class="py-2" style="border-bottom:1px solid var(--dborder)">
-          <div class="flex items-center gap-3 cursor-pointer" data-act="dash-capacity-toggle" data-key="${esc(r.name)}">
-            <div class="w-28 truncate text-xs font-medium" style="color:var(--dink)">${esc(r.name)}</div>
-            <div class="flex-1 h-2 rounded-full overflow-hidden" style="background:var(--dborder)"><div class="h-full" style="width:${pct}%;background:${barColor}"></div></div>
-            <div class="w-16 text-right text-xs font-semibold" style="color:${over ? 'var(--dd)' : 'var(--dink)'}">${r.total.toFixed(2)}/${cw.cap}</div>
-            <div class="w-4 text-xs" style="color:var(--dmute)">${expanded ? '▾' : '▸'}</div>
-          </div>
-          ${expanded ? `<div class="pl-6 pt-1.5 pb-0.5 flex flex-wrap gap-x-4 gap-y-1">
-            ${r.details.map(d => `<span class="text-xs" style="color:var(--dmute)"><span class="chip2" style="background:var(--dborder);font-size:9px;color:var(--dmute);">${d.amount}</span> ${esc(d.detail)}</span>`).join('')}
-          </div>`: ''}
-        </div>`;
-  }).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">No active assignments to compute bandwidth from yet</div>`}
-    </div>
-  </div>
+  ${orderedSections}
 </div>`;
 }

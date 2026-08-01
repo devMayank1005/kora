@@ -87,7 +87,19 @@ document.addEventListener('click', async e => {
   if (act === 'edit-timeline') { if (!can('edit')) return; S.editingTimelineId = el.dataset.tid; render(); setTimeout(() => { const ta = document.getElementById(`edit-tl-${el.dataset.tid}`); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 50); return; }
   if (act === 'cancel-edit-timeline') { S.editingTimelineId = null; render(); return; }
   if (act === 'toggle-history') { const tid = el.dataset.tid; if (S.expandedHistory.has(tid)) S.expandedHistory.delete(tid); else S.expandedHistory.add(tid); render(); return; }
-  if (act === 'modal-open') { S.modal = { type: el.dataset.modal, cid: el.dataset.cid }; render(); setTimeout(() => document.getElementById('m1')?.focus(), 50); return; }
+  if (act === 'modal-open') {
+    if (el.dataset.modal === 'dashboard-layout') {
+      const isAdmin = can('admin');
+      const saved = getDashLayout();
+      const tileOrder = saved.filter(t => {
+        const reg = DASH_TILE_REGISTRY.find(r => r.id === t.id);
+        return reg && (!reg.adminOnly || isAdmin);
+      }).map(t => ({ ...t, label: DASH_TILE_REGISTRY.find(r => r.id === t.id).label }));
+      S.modal = { type: 'dashboard-layout', tileOrder };
+      render(); return;
+    }
+    S.modal = { type: el.dataset.modal, cid: el.dataset.cid }; render(); setTimeout(() => document.getElementById('m1')?.focus(), 50); return;
+  }
   if (act === 'open-impl-phase') {
     navigate('impl-phase-detail', { clientId: el.dataset.cid, moduleId: el.dataset.mid, phase: el.dataset.phase }); return;
   }
@@ -758,6 +770,9 @@ document.addEventListener('click', async e => {
       S.modal = { ...m, busy: true }; render();
       try { await saveClients(`Rename ${changed} module${changed !== 1 ? 's' : ''}: ${c.name}`, [m.cid]); S.modal = null; showToast('Modules renamed ✓'); render(); }
       catch (err) { c.modules = prev; S.modal = null; showToast('Failed: ' + err.message, 'error'); render(); }
+    } else if (m.type === 'dashboard-layout') {
+      saveDashLayout(m.tileOrder);
+      S.modal = null; showToast('Dashboard layout saved ✓'); render();
     } else if (m.type === 'capacity-weights') {
       const val = id => parseFloat(document.getElementById(id)?.value);
       const newWeights = { module: val('cw-module'), pmo: val('cw-pmo'), ams: val('cw-ams'), cap: val('cw-cap') };
@@ -905,6 +920,14 @@ document.addEventListener('change', async e => {
     catch (err) { i.effortWeight = prev; showToast('Failed: ' + err.message, 'error'); render(); }
     return;
   }
+  const tileToggleEl = e.target.closest('[data-act="dash-tile-toggle"]');
+  if (tileToggleEl) {
+    const m = S.modal; if (!m || m.type !== 'dashboard-layout') return;
+    const t = m.tileOrder.find(x => x.id === tileToggleEl.dataset.tileId);
+    if (t) t.visible = tileToggleEl.checked;
+    render();
+    return;
+  }
   const masterAssigneeEl = e.target.closest('[data-act="inline-master-assignee"]');
   if (masterAssigneeEl && can('editor')) {
     const c = S.clients.find(x => x.id === masterAssigneeEl.dataset.cid); if (!c) return;
@@ -1013,6 +1036,38 @@ document.addEventListener('keydown', e => {
 // ─── INIT ─────────────────────────────────────────────────────────
 let _resizeTimer = null;
 window.addEventListener('resize', () => { clearTimeout(_resizeTimer); _resizeTimer = setTimeout(() => { if (S.user) render(); }, 150); });
+// Dashboard tile customization: native HTML5 drag-and-drop reordering.
+// Registered once at top level (not inside the click delegate above) —
+// these are separate event types (dragstart/dragover/drop), not clicks.
+let _dragTileId = null;
+document.addEventListener('dragstart', e => {
+  const el = e.target.closest('[data-act="dash-tile-drag"]');
+  if (!el) return;
+  _dragTileId = el.dataset.tileId;
+  try { e.dataTransfer.effectAllowed = 'move'; } catch (err) { }
+});
+document.addEventListener('dragover', e => {
+  const el = e.target.closest('[data-act="dash-tile-drag"]');
+  if (!el) return;
+  e.preventDefault();
+});
+document.addEventListener('drop', e => {
+  const el = e.target.closest('[data-act="dash-tile-drag"]');
+  if (!el || !_dragTileId) return;
+  e.preventDefault();
+  const targetId = el.dataset.tileId;
+  const m = S.modal; if (!m || m.type !== 'dashboard-layout') { _dragTileId = null; return; }
+  if (targetId === _dragTileId) { _dragTileId = null; return; }
+  const arr = m.tileOrder;
+  const fromIdx = arr.findIndex(t => t.id === _dragTileId);
+  const toIdx = arr.findIndex(t => t.id === targetId);
+  _dragTileId = null;
+  if (fromIdx === -1 || toIdx === -1) return;
+  const [moved] = arr.splice(fromIdx, 1);
+  arr.splice(toIdx, 0, moved);
+  render();
+});
+
 (async function init() {
   const sess = restoreSession();
   if (sess && sess.token && sess.user) {

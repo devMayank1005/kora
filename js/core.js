@@ -282,6 +282,41 @@ async function fetchSnapshotHistory(days = 14) {
     render();
   } catch (e) {/* trend is a nice-to-have, never block on it */ }
 }
+// ─── DASHBOARD TILE CUSTOMIZATION ──────────────────────────────────
+// Per-person (keyed by username, not just per-browser) drag-and-drop
+// tile order + show/hide, stored in localStorage like dark-mode/sidebar
+// prefs already are. Registry is the default order/set — anything the
+// person hasn't customized yet just uses this.
+const DASH_TILE_REGISTRY = [
+  { id: 'critical-items', label: 'Critical Items' },
+  { id: 'health-scorecard', label: 'Portfolio Health Scorecard' },
+  { id: 'upcoming-deadlines', label: 'Upcoming Deadlines' },
+  { id: 'ams-workmix', label: 'AMS Work-Mix' },
+  { id: 'severity-aging', label: 'Severity & Aging' },
+  { id: 'phase-funnel', label: 'Phase-Stage Funnel' },
+  { id: 'financial-rollup', label: 'Financial Rollup' },
+  { id: 'data-hygiene', label: 'Data Hygiene Score' },
+  { id: 'blockers', label: 'Blockers / Dependencies' },
+  { id: 'workload-assignee', label: 'Workload by Assignee', adminOnly: true },
+  { id: 'team-bandwidth', label: 'Team Bandwidth', adminOnly: true },
+];
+function dashLayoutKey() { return `itk_dash_layout_${(S.user?.username || 'default').toLowerCase()}`; }
+function getDashLayout() {
+  let saved = null;
+  try { const r = localStorage.getItem(dashLayoutKey()); if (r) saved = JSON.parse(r); } catch (e) { }
+  if (!Array.isArray(saved)) return DASH_TILE_REGISTRY.map(t => ({ id: t.id, visible: true }));
+  // Merge forward: any tile in the registry that isn't in the saved layout yet
+  // (e.g. Team Bandwidth, added after someone last customized) gets appended,
+  // visible by default, instead of silently disappearing.
+  const knownIds = new Set(saved.map(s => s.id));
+  const merged = saved.filter(s => DASH_TILE_REGISTRY.some(t => t.id === s.id)); // drop stale ids from old registry versions
+  DASH_TILE_REGISTRY.forEach(t => { if (!knownIds.has(t.id)) merged.push({ id: t.id, visible: true }); });
+  return merged;
+}
+function saveDashLayout(tileOrder) {
+  try { localStorage.setItem(dashLayoutKey(), JSON.stringify(tileOrder.map(t => ({ id: t.id, visible: t.visible })))); } catch (e) { }
+}
+
 async function fetchCapacityWeights() {
   if (S.capacityWeightsFetched) return;
   S.capacityWeightsFetched = true;

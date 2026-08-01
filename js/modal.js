@@ -278,6 +278,19 @@ function renderModal() {
       ${(c?.modules || []).length ? (c.modules.map(mod => `<div><label class="block text-xs font-medium text-gray-500 mb-1">Module</label><input id="rm-${mod.id}" type="text" value="${esc(mod.name)}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>`).join('')) : '<p class="text-sm text-gray-400">No modules for this client.</p>'}
     </div>`;
     btnLabel = 'Save All';
+  } else if (m.type === 'dashboard-layout') {
+    title = 'Customize Dashboard'; btnLabel = 'Save Layout';
+    const tiles = m.tileOrder || [];
+    body = `<div class="space-y-2">
+      <p class="text-xs text-gray-500 mb-2">Drag to reorder. Uncheck to hide a tile. Only affects your own view.</p>
+      <div id="dash-tile-list">
+        ${tiles.map((t, idx) => `<div draggable="true" data-act="dash-tile-drag" data-tile-id="${esc(t.id)}" data-idx="${idx}" class="flex items-center gap-2.5 p-2.5 mb-1.5 rounded-xl border border-gray-200 bg-white cursor-move" style="${t.visible ? '' : 'opacity:.5;'}">
+          <span class="text-gray-300 text-sm" style="cursor:grab;">⠿⠿</span>
+          <input type="checkbox" data-act="dash-tile-toggle" data-tile-id="${esc(t.id)}" ${t.visible ? 'checked' : ''} class="rounded"/>
+          <span class="text-sm text-gray-800 flex-1">${esc(t.label)}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
   } else if (m.type === 'capacity-weights') {
     title = 'Configure Capacity Weights'; btnLabel = 'Save';
     const cw = S.capacityWeights;
