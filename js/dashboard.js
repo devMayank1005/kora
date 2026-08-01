@@ -311,7 +311,7 @@ function renderDashboard(){
               <span class="chip2" style="background:var(--dborder);color:var(--dmute);font-size:9px;">${it.cat}</span>
               ${it.cat==='Phase'&&it.moduleName?`<span class="font-medium" style="color:var(--dmute)">${esc(it.moduleName)}</span><span style="color:var(--dborder)">·</span>`:''}
               <span class="truncate" style="color:var(--dmute)">${esc(it.name||it.description||'Untitled')}</span>
-              <span style="color:var(--dborder)">· ${esc(it.clientName||'')}</span>
+              ${it.clientName?`<span style="color:var(--dborder)">·</span><span class="font-medium truncate" style="color:var(--dmute)">${esc(it.clientName)}</span>`:''}
               ${it.status?`<span style="color:var(--dmute)">· ${esc(it.status)}</span>`:''}
             </div>`).join('')}
           </div>`:''}
