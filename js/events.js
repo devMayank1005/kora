@@ -56,6 +56,7 @@ document.addEventListener('click', async e => {
     el.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
     return;
   }
+  if (act === 'close-shortcuts-help') { S.shortcutsHelpOpen = false; render(); return; }
   if (act === 'cmdp-open') { S.cmdPaletteOpen = true; S.cmdQuery = ''; S.cmdSelectedIdx = 0; render(); setTimeout(() => document.getElementById('cmdp-input')?.focus(), 30); return; }
   if (act === 'cmdp-go') {
     const r = _cmdpResults[Number(el.dataset.idx)]; if (!r) return;
@@ -1027,11 +1028,35 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && S.view === 'login') document.querySelector('[data-act="login"]')?.click();
   if (e.key === 'Escape' && S.modal && !S.modal.busy) { S.modal = null; render(); return; }
   if (e.key === 'Escape' && S.cmdPaletteOpen) { S.cmdPaletteOpen = false; render(); return; }
+  if (e.key === 'Escape' && S.shortcutsHelpOpen) { S.shortcutsHelpOpen = false; render(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && S.user) { e.preventDefault(); S.cmdPaletteOpen = !S.cmdPaletteOpen; S.cmdQuery = ''; S.cmdSelectedIdx = 0; render(); if (S.cmdPaletteOpen) setTimeout(() => document.getElementById('cmdp-input')?.focus(), 30); return; }
   if (S.cmdPaletteOpen && e.key === 'ArrowDown') { e.preventDefault(); const max = (_cmdpResults?.length || 1) - 1; S.cmdSelectedIdx = Math.min(S.cmdSelectedIdx + 1, Math.max(max, 0)); render(); return; }
   if (S.cmdPaletteOpen && e.key === 'ArrowUp') { e.preventDefault(); S.cmdSelectedIdx = Math.max(S.cmdSelectedIdx - 1, 0); render(); return; }
   if (S.cmdPaletteOpen && e.key === 'Enter') { const idx = Math.min(S.cmdSelectedIdx, (_cmdpResults?.length || 1) - 1); const sel = document.querySelector(`[data-act="cmdp-go"][data-idx="${idx}"]`); sel?.click(); return; }
+
+  // ── Navigation shortcuts (Linear-style "g then letter") + ? help overlay ──
+  // Never fire while typing in any field — bare single letters would otherwise
+  // hijack normal text entry (typing "g" in a client name, for instance).
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName) || e.target?.isContentEditable;
+  if (typing || !S.user || S.cmdPaletteOpen || S.modal) return;
+
+  if (e.key === '?') { e.preventDefault(); S.shortcutsHelpOpen = !S.shortcutsHelpOpen; render(); return; }
+
+  if (e.key.toLowerCase() === 'g' && !e.metaKey && !e.ctrlKey) {
+    _gChordActive = true;
+    clearTimeout(_gChordTimer);
+    _gChordTimer = setTimeout(() => { _gChordActive = false; }, 800);
+    return;
+  }
+  if (_gChordActive) {
+    _gChordActive = false;
+    clearTimeout(_gChordTimer);
+    const dest = { d: 'dashboard', i: 'clients', m: 'impl-clients', a: 'ams-clients' }[e.key.toLowerCase()];
+    if (dest) { e.preventDefault(); navigate(dest); }
+  }
 });
+let _gChordActive = false;
+let _gChordTimer = null;
 
 // ─── INIT ─────────────────────────────────────────────────────────
 let _resizeTimer = null;

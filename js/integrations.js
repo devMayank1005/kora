@@ -1,8 +1,6 @@
 // ─── CLIENT LIST ──────────────────────────────────────────────────
 function renderClientList() {
-  const q = S.search.toLowerCase();
   const inIntegDomain = c => c.integrations.length > 0 || (c.modules === undefined && c.workLog === undefined);
-  const fl = S.clients.filter(inIntegDomain).filter(c => c.name.toLowerCase().includes(q));
   const scoped = S.clients.filter(inIntegDomain);
   const ti = scoped.reduce((a, c) => a + c.integrations.length, 0);
   const ar = scoped.reduce((a, c) => a + c.integrations.filter(i => i.status === 'At Risk').length, 0);
@@ -13,13 +11,10 @@ function renderClientList() {
   </div>
   <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
     <h1 class="text-xl font-bold text-gray-900">Integrations</h1>
-    <div class="flex items-center gap-2">
-      <input id="search-inp" data-act="search" type="text" placeholder="Search clients…" value="${esc(S.search)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
-      <button data-act="modal-open" data-modal="add-client" class="whitespace-nowrap btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition">+ Add Client</button>
-    </div>
+    <button data-act="modal-open" data-modal="add-client" class="whitespace-nowrap btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition">+ Add Client</button>
   </div>
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    ${fl.length ? fl.map((c, idx) => {
+    ${scoped.length ? scoped.map((c, idx) => {
     const ar2 = c.integrations.filter(i => i.status === 'At Risk').length;
     const od2 = c.integrations.filter(isOverdue).length;
     const total = c.integrations.length;
@@ -39,7 +34,7 @@ function renderClientList() {
           ${miniStat(od2, 'overdue', od2 > 0 ? 'var(--amber)' : undefined)}
         </div>
       </div>`;
-  }).join('') : `<div class="col-span-3 text-center py-16 text-gray-400">${emptyIcon('search')}No clients match "${esc(S.search)}"</div>`}
+  }).join('') : `<div class="col-span-3 text-center py-16 text-gray-400">${emptyIcon('inbox')}No clients yet. Add one to get started.</div>`}
   </div>
 </div>`;
 }
