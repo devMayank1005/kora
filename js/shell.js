@@ -160,7 +160,7 @@ function render() {
   if (S.view === 'login') { app.innerHTML = renderLogin(); return; }
   let content = '';
   if (S.view === 'dashboard') content = renderDashboard();
-  else if (S.view === 'clients') content = renderClientList();
+  else if (S.view === 'clients') content = renderClientDetail(S.params.clientId);
   else if (S.view === 'client-detail') content = renderClientDetail(S.params.clientId);
   else if (S.view === 'integ-detail') content = renderIntegDetail(S.params.clientId, S.params.integId);
   else if (S.view === 'impl-clients') content = renderImplClientList();
