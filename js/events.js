@@ -70,6 +70,7 @@ document.addEventListener('click', async e => {
   if (act === 'sort') { const k = el.dataset.key; if (S.sort.key === k) { S.sort.dir = S.sort.dir === 'asc' ? 'desc' : 'asc'; } else { S.sort = { key: k, dir: 'asc' }; } render(); return; }
   if (act === 'sort-dash-attn') { const k = el.dataset.key; if (S.dashAttnSort.key === k) { S.dashAttnSort.dir = S.dashAttnSort.dir === 'asc' ? 'desc' : 'asc'; } else { S.dashAttnSort = { key: k, dir: 'asc' }; } render(); return; }
   if (act === 'dash-assignee-filter') { S.dashAssigneeFilter = el.dataset.key; render(); return; }
+  if (act === 'dash-crit-filter') { S.dashCritFilter = el.dataset.key; render(); return; }
   if (act === 'sort-dash-assignee') { const k = el.dataset.key; if (S.dashAssigneeSort.key === k) { S.dashAssigneeSort.dir = S.dashAssigneeSort.dir === 'asc' ? 'desc' : 'asc'; } else { S.dashAssigneeSort = { key: k, dir: 'desc' }; } render(); return; }
   if (act === 'dash-assignee-toggle') { const key = el.dataset.key; if (S.dashAssigneeExpanded.has(key)) S.dashAssigneeExpanded.delete(key); else S.dashAssigneeExpanded.add(key); render(); return; }
   if (act === 'dash-capacity-toggle') { const key = el.dataset.key; if (S.dashCapacityExpanded.has(key)) S.dashCapacityExpanded.delete(key); else S.dashCapacityExpanded.add(key); render(); return; }
@@ -996,6 +997,7 @@ document.addEventListener('change', async e => {
 let _st;
 let _ct;
 let _dat;
+let _dct;
 let _adt;
 document.addEventListener('input', e => {
   if (e.target.dataset?.act === 'search') {
@@ -1009,6 +1011,10 @@ document.addEventListener('input', e => {
   if (e.target.dataset?.act === 'dash-assignee-search') {
     clearTimeout(_dat); const v = e.target.value;
     _dat = setTimeout(() => { S.dashAssigneeSearch = v; render(); setTimeout(() => { const el = document.getElementById('dash-assignee-search-inp'); if (el) { el.focus(); try { el.setSelectionRange(v.length, v.length); } catch { } } }, 10); }, 120);
+  }
+  if (e.target.dataset?.act === 'dash-crit-search') {
+    clearTimeout(_dct); const v = e.target.value;
+    _dct = setTimeout(() => { S.dashCritSearch = v; render(); setTimeout(() => { const el = document.getElementById('dash-crit-search-inp'); if (el) { el.focus(); try { el.setSelectionRange(v.length, v.length); } catch { } } }, 10); }, 120);
   }
   if (e.target.dataset?.act === 'admin-search') {
     clearTimeout(_adt); const v = e.target.value;
