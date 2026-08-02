@@ -4,56 +4,48 @@ function implProgress(client) {
   (client.modules || []).forEach(m => (m.phases || []).forEach(ph => { total++; if (ph.status === 'Completed') completed++; if (ph.status === 'At Risk') atRisk++; }));
   return { total, completed, atRisk, pct: total ? Math.round(completed / total * 100) : 0 };
 }
-function renderImplClientList() {
-  const implClients = S.clients.filter(c => c.modules !== undefined);
-  const totalModules = implClients.reduce((a, c) => a + (c.modules?.length || 0), 0);
-  const atRiskClients = implClients.filter(c => implAutoRag(c) === 'Red').length;
-  const amberClients = implClients.filter(c => implAutoRag(c) === 'Amber').length;
-  return `<div class="k-page fade">
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    ${[['Clients', implClients.length, 'text-[#0e7490]', 'bg-[#0e7490]/10'], ['Total Modules', totalModules, 'text-gray-700', 'bg-gray-100'], ['Amber', amberClients, 'text-amber-600', 'bg-amber-50'], ['Red', atRiskClients, 'text-rose-600', 'bg-rose-50']].map(([l, v, tc, bg]) => `<div class="${bg} rounded-2xl p-4"><div class="text-2xl font-bold ${tc}">${v}</div><div class="text-xs text-gray-500 mt-0.5">${l}</div></div>`).join('')}
-  </div>
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-    <h1 class="text-xl font-bold text-gray-900">Implementations</h1>
-    <button data-act="modal-open" data-modal="add-impl-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition">+ Add Client</button>
-  </div>
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    ${implClients.length ? implClients.map((c, idx) => {
-    const mods = c.modules || [];
-    const pr = implProgress(c);
-    const rag = implAutoRag(c);
-    const ringColor = rag === 'Red' ? 'var(--red)' : rag === 'Amber' ? 'var(--amber)' : 'var(--green)';
-    const atRiskPhases = mods.reduce((a, m) => a + (m.phases || []).filter(ph => ph.status === 'At Risk').length, 0);
-    return `<div data-act="open-impl-client" data-id="${esc(c.id)}" style="animation-delay:${Math.min(idx * 35, 400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
-        <div class="flex items-center gap-3.5">
-          ${ringSvg(pr.pct, ringColor)}
-          <div class="flex-1 min-w-0">
-            <div class="font-semibold text-gray-900 truncate" title="${esc(c.name)}">${esc(c.name)}</div>
-            <div class="text-xs text-gray-400 mt-0.5 truncate">${c.description ? esc(c.description) : `${mods.length} module${mods.length !== 1 ? 's' : ''}`}</div>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 mt-3" onclick="event.stopPropagation()">
-          ${can('editor') ? `<select data-act="inline-master-assignee" data-cid="${esc(c.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[140px]">${assigneeOptionsOnly(c.masterAssignee)}</select>` : c.masterAssignee ? `${avatarChip(c.masterAssignee, 20)}<span class="text-xs text-gray-600 truncate">${esc(c.masterAssignee)}</span>` : `<span class="text-xs text-gray-400 italic">— unassigned —</span>`}
-        </div>
-        <div class="flex gap-5 mt-3.5 pt-3 border-t border-gray-100">
-          ${miniStat(mods.length, 'modules')}
-          ${miniStat(`${pr.completed}/${pr.total}`, 'phases')}
-          ${miniStat(atRiskPhases, 'at risk', atRiskPhases > 0 ? 'var(--red)' : undefined)}
-        </div>
-      </div>`;
-  }).join('') : `<div class="col-span-3 text-center py-16 text-gray-400">${emptyIcon('inbox')}No implementation clients yet. Add one to get started.</div>`}
-  </div>
-</div>`;
-}
-
+// ─── CLIENT LIST — replaced by the 3-column renderImplClientDetail below,
+// which now also handles the bare "no client selected yet" case ───
 function renderImplClientDetail(clientId) {
-  const c = S.clients.find(x => x.id === clientId);
-  if (!c) return `<div class="p-8 text-gray-400">Client not found</div>`;
+  const implClients = S.clients.filter(x => x.modules !== undefined);
+  const c = S.clients.find(x => x.id === clientId) || implClients[0];
+  if (!c) return `<div class="k-page fade"><div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('inbox')}No implementation clients yet. <button data-act="modal-open" data-modal="add-impl-client" class="text-[#0e7490] font-medium ml-1">Add one</button></div></div>`;
   const pr = implProgress(c);
   const bulk = S.bulkImplMode && S.bulkImplCid === c.id;
   const sel = S.bulkSelected;
   const selCount = sel.size;
-  return `<div class="k-page fade">
+
+  const clientRail = `<div class="overflow-y-auto pr-1" style="max-height:calc(100vh - 132px);">
+    <div class="flex items-center justify-between mb-3 px-1">
+      <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">${implClients.length} Client${implClients.length !== 1 ? 's' : ''}</span>
+      <button data-act="modal-open" data-modal="add-impl-client" title="Add Client" class="text-[#0e7490] text-lg leading-none font-bold">+</button>
+    </div>
+    <div class="flex flex-col gap-3">
+      ${implClients.map(cl => {
+    const mods = cl.modules || [];
+    const clPr = implProgress(cl);
+    const rag = implAutoRag(cl);
+    const ringColor = rag === 'Red' ? 'var(--red)' : rag === 'Amber' ? 'var(--amber)' : 'var(--green)';
+    const atRiskPhases = mods.reduce((a, m) => a + (m.phases || []).filter(ph => ph.status === 'At Risk').length, 0);
+    const active = cl.id === c.id;
+    return `<div data-act="open-impl-client" data-id="${esc(cl.id)}" class="card-hover cursor-pointer bg-white rounded-2xl border p-4 ${active ? 'border-[#0e7490] ring-1 ring-[#0e7490]/30' : 'border-gray-100'}">
+        <div class="flex items-center gap-3">
+          ${ringSvg(clPr.pct, ringColor, 40)}
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm truncate" style="color:${active ? '#0e7490' : '#111827'}">${esc(cl.name)}</div>
+            <div class="text-xs text-gray-400 mt-0.5 truncate">${mods.length} module${mods.length !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        <div class="mt-2.5" onclick="event.stopPropagation()">
+          ${can('editor') ? `<select data-act="inline-master-assignee" data-cid="${esc(cl.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-full w-full">${assigneeOptionsOnly(cl.masterAssignee)}</select>` : cl.masterAssignee ? `<div class="flex items-center gap-1.5">${avatarChip(cl.masterAssignee, 18)}<span class="text-xs text-gray-500 truncate">${esc(cl.masterAssignee)}</span></div>` : `<span class="text-xs text-gray-400 italic">— unassigned —</span>`}
+        </div>
+        ${atRiskPhases ? `<div class="mt-2.5 pt-2.5 border-t border-gray-50 text-xs"><span class="font-semibold text-rose-600">${atRiskPhases}</span> <span class="text-gray-400">phase${atRiskPhases !== 1 ? 's' : ''} at risk</span></div>` : ''}
+      </div>`;
+  }).join('')}
+    </div>
+  </div>`;
+
+  const detailPanel = `<div>
   <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
     <div>
       <div class="flex items-center gap-3 flex-wrap">
@@ -62,9 +54,6 @@ function renderImplClientDetail(clientId) {
       </div>
       ${c.description ? `<p class="text-sm text-gray-400 mt-0.5">${esc(c.description)}</p>` : ''}
       ${pr.total > 0 ? `<p class="text-xs text-gray-400 mt-1">${pr.completed}/${pr.total} phases complete · ${pr.pct}%${pr.atRisk > 0 ? ` · <span class="text-rose-500">${pr.atRisk} at risk</span>` : ''}</p>` : ''}
-      <div class="flex items-center gap-2 mt-2">
-        ${c.masterAssignee ? `${avatarChip(c.masterAssignee, 20)}<span class="text-xs text-gray-500">Master Assignee: <span class="text-gray-700 font-medium">${esc(c.masterAssignee)}</span></span>` : `<span class="text-xs text-gray-400 italic">No master assignee set</span>`}
-      </div>
     </div>
     <div class="flex gap-2 flex-wrap">
       ${bulk ? `<span class="text-xs text-[#0e7490] bg-[#0e7490]/10 px-3 py-2 rounded-xl font-medium">Select phases to mark complete</span>
@@ -146,6 +135,13 @@ function renderImplClientDetail(clientId) {
     </div>
   </div>
   <div class="h-20"></div>`: ''}
+</div>`;
+
+  return `<div class="fade" style="padding:20px 28px 36px;">
+  <div class="grid gap-5" style="grid-template-columns:280px minmax(0,1fr);align-items:start;">
+    ${clientRail}
+    <div style="min-width:0;">${detailPanel}</div>
+  </div>
 </div>`;
 }
 

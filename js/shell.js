@@ -163,10 +163,10 @@ function render() {
   else if (S.view === 'clients') content = renderClientDetail(S.params.clientId);
   else if (S.view === 'client-detail') content = renderClientDetail(S.params.clientId);
   else if (S.view === 'integ-detail') content = renderIntegDetail(S.params.clientId, S.params.integId);
-  else if (S.view === 'impl-clients') content = renderImplClientList();
+  else if (S.view === 'impl-clients') content = renderImplClientDetail(S.params.clientId);
   else if (S.view === 'impl-client-detail') content = renderImplClientDetail(S.params.clientId);
   else if (S.view === 'impl-phase-detail') content = renderImplPhaseDetail(S.params.clientId, S.params.moduleId, S.params.phase);
-  else if (S.view === 'ams-clients') content = renderAmsClientList();
+  else if (S.view === 'ams-clients') content = renderAmsClientDetail(S.params.clientId);
   else if (S.view === 'ams-client-detail') content = renderAmsClientDetail(S.params.clientId);
   else if (S.view === 'admin') content = can('admin') ? renderAdmin() : `<div class="p-8 text-rose-500">Access denied</div>`;
   const isMobile = window.innerWidth < 768;

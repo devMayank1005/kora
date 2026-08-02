@@ -24,27 +24,38 @@ function renderClientDetail(clientId) {
   const sorted = sortIntegs(fl);
   const cols = [['name', 'Integration'], ['status', 'Status'], ['assignee', 'Assignee'], ['due', 'Due Date'], ['lastUpdate', 'Last Update']];
 
-  // ── COLUMN 1: client bento rail — the new piece. Clicking a card here
-  // updates the URL (navigate keeps view='client-detail', just swaps clientId)
-  // so the page stays bookmarkable/shareable per the app's existing principle,
-  // without introducing a separate list-then-detail page navigation.
-  const clientRail = `<div class="bg-white rounded-2xl border border-gray-100 overflow-y-auto" style="max-height:calc(100vh - 112px);">
-    <div class="px-3 py-2.5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+  // ── COLUMN 1: client bento rail — real bento cards (ring + health color,
+  // same visual language as everywhere else in the app), not a flat list.
+  // Stacked vertically since the column is narrow, but each entry is a
+  // genuine card: rounded, bordered, hover-lift — not a dense list row.
+  const clientRail = `<div class="overflow-y-auto pr-1" style="max-height:calc(100vh - 132px);">
+    <div class="flex items-center justify-between mb-3 px-1">
       <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">${allClients.length} Client${allClients.length !== 1 ? 's' : ''}</span>
       <button data-act="modal-open" data-modal="add-client" title="Add Client" class="text-[#0e7490] text-lg leading-none font-bold">+</button>
     </div>
-    ${allClients.map(cl => {
+    <div class="flex flex-col gap-3">
+      ${allClients.map(cl => {
     const ar = cl.integrations.filter(i => i.status === 'At Risk').length;
+    const od = cl.integrations.filter(isOverdue).length;
     const total = cl.integrations.length;
+    const completed = cl.integrations.filter(i => i.status === 'Completed').length;
+    const pct = total ? completed / total * 100 : 0;
     const active = cl.id === c.id;
-    return `<div data-act="open-client" data-id="${esc(cl.id)}" class="px-3 py-2.5 border-b border-gray-50 cursor-pointer transition ${active ? 'bg-[#0e7490]/5 border-l-2 border-l-[#0e7490]' : 'border-l-2 border-l-transparent hover:bg-gray-50'}">
-      <div class="text-sm font-semibold truncate" style="color:${active ? '#0e7490' : '#111827'}">${esc(cl.name)}</div>
-      <div class="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
-        <span>${total} integration${total !== 1 ? 's' : ''}</span>
-        ${ar ? `<span class="text-rose-600 font-semibold">· ${ar} at risk</span>` : ''}
-      </div>
-    </div>`;
+    return `<div data-act="open-client" data-id="${esc(cl.id)}" class="card-hover cursor-pointer bg-white rounded-2xl border p-4 ${active ? 'border-[#0e7490] ring-1 ring-[#0e7490]/30' : 'border-gray-100'}">
+        <div class="flex items-center gap-3">
+          ${ringSvg(pct, healthVar(cl), 40)}
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm truncate" style="color:${active ? '#0e7490' : '#111827'}">${esc(cl.name)}</div>
+            <div class="text-xs text-gray-400 mt-0.5 truncate">${total} integration${total !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        ${ar || od ? `<div class="flex gap-3 mt-3 pt-2.5 border-t border-gray-50">
+          ${ar ? `<div class="text-xs"><span class="font-semibold text-rose-600">${ar}</span> <span class="text-gray-400">at risk</span></div>` : ''}
+          ${od ? `<div class="text-xs"><span class="font-semibold text-amber-600">${od}</span> <span class="text-gray-400">overdue</span></div>` : ''}
+        </div>` : ''}
+      </div>`;
   }).join('')}
+    </div>
   </div>`;
 
   // ── COLUMNS 2+3: unchanged from the existing, already-shipped master-detail —
@@ -135,11 +146,17 @@ function renderClientDetail(clientId) {
   <div class="h-20"></div>`: ''}
 </div>`;
 
-  // ── 3-COLUMN ASSEMBLY: Column 1 (client rail) | Columns 2+3 (existing, reused) ──
-  return `<div class="k-page fade">
-  <div class="grid gap-4" style="grid-template-columns:240px 1fr;align-items:start;">
+  // ── 3-COLUMN ASSEMBLY: full-width, not the app's usual centered .k-page
+  // (max-width:1280px would waste most of the screen on a page meant to use
+  // all available width). min-width:0 on the grid's second track is the
+  // actual fix for the horizontal scroll — CSS grid items default to
+  // min-width:auto, which refuses to shrink below its content's natural
+  // width; without this override, the inner 5-col list+detail grid could
+  // force the whole page wider than the viewport instead of wrapping/shrinking.
+  return `<div class="fade" style="padding:20px 28px 36px;">
+  <div class="grid gap-5" style="grid-template-columns:280px minmax(0,1fr);align-items:start;">
     ${clientRail}
-    ${listAndDetail}
+    <div style="min-width:0;">${listAndDetail}</div>
   </div>
 </div>`;
 }
