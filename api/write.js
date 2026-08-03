@@ -16,6 +16,7 @@ const { logAudit, clientIp } = require('./_audit');
 const { applyCors } = require('./_cors');
 const { assertIdsDeep, assertRole, assertPassword } = require('./_validate');
 const { serverError } = require('./_errors');
+const { dualWriteClients, archiveDeletedClients } = require('./_dualwrite');
 
 const BCRYPT_COST = 12; // L-5: raised from 10. Existing hashes upgrade via the
                          // lazy-rehash path in login.js the next time each user logs in.
@@ -202,6 +203,11 @@ module.exports = async function handler(req, res) {
           `${SUPABASE_URL}/rest/v1/clients?id=in.(${idList})`,
           { method: 'DELETE', headers: { ...sbHeaders, Prefer: '' } }
         );
+        try {
+          await archiveDeletedClients({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY }, deleteIds, check.payload.username);
+        } catch (dualWriteErr) {
+          console.error('_dualwrite archiveDeletedClients failed, real delete was unaffected:', dualWriteErr.message);
+        }
       }
 
       if (succeeded.length) {
@@ -210,6 +216,14 @@ module.exports = async function handler(req, res) {
           action: message || 'Update clients',
           entity: 'clients',
         });
+      }
+
+      if (succeeded.length) {
+        try {
+          await dualWriteClients({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY }, data, succeeded.map(s => s.id), check.payload.username);
+        } catch (dualWriteErr) {
+          console.error('_dualwrite (clients) failed, real save was unaffected:', dualWriteErr.message);
+        }
       }
 
       if (conflicts.length) {

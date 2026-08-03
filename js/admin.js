@@ -235,6 +235,13 @@ function renderAdminUsers(){
       <div class="k-metric"><div class="k-num-l" style="color:#64748b;">${byRole.viewer||0}</div><div class="k-eyebrow" style="margin-top:6px;">Viewers</div></div>
     </div>
   </div>
+  <div class="k-card mb-5" style="padding:16px 18px;">
+    <h3 class="text-sm font-bold text-gray-900 mb-1">System Maintenance</h3>
+    <p class="text-xs text-gray-400 mb-3">One-time or repair tasks. Safe to re-run anytime — none of these touch your live records, only their backing/derived data.</p>
+    <div class="flex flex-wrap gap-2">
+      <button data-act="modal-open" data-modal="admin-task-runner" data-task-label="Resync V2 Tables" data-task-endpoint="/api/backfill-v2" data-task-description="Re-syncs every client into the new normalized v2 tables — catches up anything created before dual-write existed, or anything a save silently failed to sync." class="text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:border-[#0e7490] hover:text-[#0e7490] transition">🔄 Resync V2 Tables</button>
+    </div>
+  </div>
   <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
     ${adminSearchBar('Search name, username, or email…')}
     <div class="flex gap-2">
