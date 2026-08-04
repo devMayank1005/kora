@@ -265,28 +265,69 @@ function renderLogin() {
     ['At Risk', 'Payroll sync', 28],
     ['Pending Client', 'SSO configuration', 10],
   ];
-  return `<div class="min-h-screen flex" style="background:var(--paper);">
+  return `<style>
+    @keyframes login-mesh-drift {
+      0%   { background-position: 0% 0%, 100% 100%, 50% 50%; filter: hue-rotate(0deg); }
+      50%  { background-position: 100% 50%, 0% 50%, 60% 40%; filter: hue-rotate(25deg); }
+      100% { background-position: 0% 0%, 100% 100%, 50% 50%; filter: hue-rotate(0deg); }
+    }
+    .login-mesh {
+      position: absolute; inset: -20%; z-index: 0; pointer-events: none;
+      background-image:
+        radial-gradient(circle at 15% 85%, rgba(37,99,235,.35), transparent 55%),
+        radial-gradient(circle at 85% 15%, rgba(14,116,144,.32), transparent 55%),
+        radial-gradient(circle at 50% 50%, rgba(99,102,241,.22), transparent 60%);
+      background-size: 180% 180%, 180% 180%, 160% 160%;
+      animation: login-mesh-drift 18s ease-in-out infinite;
+      will-change: background-position, filter;
+    }
+    @keyframes login-in {
+      from { opacity: 0; transform: translateY(14px) scale(.98); }
+      to   { opacity: 1; transform: none; }
+    }
+    .login-stagger { opacity: 0; animation: login-in .7s cubic-bezier(.2,.7,.2,1) forwards; }
+    .login-stagger-1 { animation-delay: .05s; }
+    .login-stagger-2 { animation-delay: .25s; }
+    .login-stagger-3 { animation-delay: .45s; }
+    @keyframes login-pulse-glow {
+      0%, 100% { box-shadow: 0 0 24px 0 rgba(37,99,235,.08); border-color: rgba(255,255,255,.1); }
+      50%      { box-shadow: 0 0 32px 4px rgba(37,99,235,.22); border-color: rgba(96,165,250,.35); }
+    }
+    .login-card {
+      opacity: 0;
+      animation:
+        login-in .7s cubic-bezier(.2,.7,.2,1) .45s forwards,
+        login-pulse-glow 3.2s ease-in-out .45s infinite;
+    }
+    .login-bar-fill {
+      width: 0; border-radius: 2px;
+      animation: login-bar-fill 1.1s cubic-bezier(.16,.8,.3,1) forwards;
+      animation-delay: var(--d, 0s);
+    }
+    @keyframes login-bar-fill { from { width: 0; } to { width: var(--w); } }
+  </style>
+  <div class="min-h-screen flex" style="background:var(--paper);">
   <div class="hidden lg:flex flex-col justify-between" style="width:58%;background:var(--ink-2);padding:56px 64px;position:relative;overflow:hidden;">
-    <div style="position:absolute;inset:0;background:radial-gradient(circle at 15% 85%, rgba(37,99,235,.18), transparent 55%);"></div>
-    <div style="position:relative;z-index:1;">
+    <div class="login-mesh"></div>
+    <div class="login-stagger login-stagger-1" style="position:relative;z-index:1;">
       <div style="display:inline-block;background:#fff;padding:8px 16px;border-radius:10px;">
         <img src="${KOGNOZ_LOGO}" alt="Kognoz" style="height:26px;width:auto;object-fit:contain;display:block;" />
       </div>
     </div>
     <div style="position:relative;z-index:1;max-width:480px;">
-      <h1 style="font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15;color:#fff;margin-bottom:16px;">Every client.<br/>Every phase.<br/>One view.</h1>
-      <p style="font-size:14px;color:#94a3b8;line-height:1.6;margin-bottom:36px;">Kora tracks integrations, implementations, and AMS delivery across your whole portfolio — so nothing slips between spreadsheets.</p>
-      <div class="fade" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:20px 22px;backdrop-filter:blur(8px);">
+      <h1 class="login-stagger login-stagger-2" style="font-size:34px;font-weight:700;letter-spacing:-0.02em;line-height:1.15;color:#fff;margin-bottom:16px;">Every client.<br/>Every phase.<br/>One view.</h1>
+      <p class="login-stagger login-stagger-2" style="font-size:14px;color:#94a3b8;line-height:1.6;margin-bottom:36px;">Kora tracks integrations, implementations, and AMS delivery across your whole portfolio — so nothing slips between spreadsheets.</p>
+      <div class="login-card" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:20px 22px;backdrop-filter:blur(8px);">
         <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#64748b;margin-bottom:14px;">Live portfolio status</div>
         <div style="display:flex;flex-direction:column;gap:13px;">
-          ${board.map(([status, label, pct]) => `<div>
+          ${board.map(([status, label, pct], i) => `<div>
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
               <span style="width:7px;height:7px;border-radius:50%;background:#${SHEX[status]};flex-shrink:0;"></span>
               <span style="font-size:12.5px;color:#e2e8f0;flex:1;">${label}</span>
               <span style="font-size:11px;color:#64748b;font-family:var(--mono);">${pct}%</span>
             </div>
             <div style="height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:#${SHEX[status]};border-radius:2px;"></div>
+              <div class="login-bar-fill" style="--w:${pct}%;--d:${(1 + i * 0.15).toFixed(2)}s;height:100%;background:#${SHEX[status]};"></div>
             </div>
           </div>`).join('')}
         </div>
@@ -296,7 +337,7 @@ function renderLogin() {
   </div>
 
   <div class="flex items-center justify-center" style="width:100%;padding:24px;">
-    <div class="fade" style="width:100%;max-width:360px;">
+    <div class="login-stagger login-stagger-3" style="width:100%;max-width:360px;">
       <div class="lg:hidden text-center" style="margin-bottom:28px;">
         <img src="${KOGNOZ_LOGO}" alt="Kognoz" style="height:40px;width:auto;object-fit:contain;margin:0 auto;display:block;" />
       </div>
