@@ -98,7 +98,8 @@ document.addEventListener('click', async e => {
       S.modal = { type: 'dashboard-layout', tileOrder };
       render(); return;
     }
-    S.modal = { type: el.dataset.modal, cid: el.dataset.cid }; render(); setTimeout(() => document.getElementById('m1')?.focus(), 50); return;
+    S.modal = { ...el.dataset, type: el.dataset.modal, log: [], busy: false, done: false, offset: 0, totalProcessed: 0, totalFailed: 0 };
+    render(); setTimeout(() => document.getElementById('m1')?.focus(), 50); return;
   }
   if (act === 'open-impl-phase') {
     navigate('impl-phase-detail', { clientId: el.dataset.cid, moduleId: el.dataset.mid, phase: el.dataset.phase }); return;
@@ -773,6 +774,39 @@ document.addEventListener('click', async e => {
     } else if (m.type === 'dashboard-layout') {
       saveDashLayout(m.tileOrder);
       S.modal = null; showToast('Dashboard layout saved ✓'); render();
+    } else if (m.type === 'admin-task-runner') {
+      if (m.done) { S.modal = null; render(); return; }
+      // Generic batch-loop runner: any endpoint returning
+      // {processed, failedCount, results:[{id,name,ok,error?}], done, nextOffset}
+      // works here unchanged — this is the reusable part for future tasks.
+      S.modal = { ...m, busy: true, log: [...m.log, `▶ Starting ${m.taskLabel}…`] }; render();
+      let offset = 0;
+      try {
+        while (true) {
+          const res = await fetch(m.taskEndpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' },
+            body: JSON.stringify({ offset, limit: 5 }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+          const failedNames = (data.results || []).filter(r => !r.ok).map(r => r.name || r.id);
+          const line = failedNames.length
+            ? `⚠ Batch at offset ${offset}: ${data.processed} processed, ${data.failedCount} failed (${failedNames.join(', ')})`
+            : `✓ Batch at offset ${offset}: ${data.processed} processed`;
+          S.modal = {
+            ...S.modal, log: [...S.modal.log, line],
+            totalProcessed: (S.modal.totalProcessed || 0) + (data.processed || 0),
+            totalFailed: (S.modal.totalFailed || 0) + (data.failedCount || 0),
+          };
+          render();
+          if (data.done) break;
+          offset = data.nextOffset;
+        }
+        S.modal = { ...S.modal, busy: false, done: true, log: [...S.modal.log, `🏁 Finished.`] }; render();
+      } catch (err) {
+        S.modal = { ...S.modal, busy: false, done: true, log: [...S.modal.log, `⚠ Stopped early: ${err.message}`] }; render();
+      }
     } else if (m.type === 'capacity-weights') {
       const val = id => parseFloat(document.getElementById(id)?.value);
       const newWeights = { module: val('cw-module'), pmo: val('cw-pmo'), ams: val('cw-ams'), cap: val('cw-cap') };

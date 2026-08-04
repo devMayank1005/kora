@@ -301,21 +301,34 @@ function renderModal() {
       <div><label class="block text-xs font-medium text-gray-500 mb-1">AMS Ticket (per open entry)</label><input id="cw-ams" type="number" step="0.05" min="0.05" max="10" value="${cw.ams}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Capacity Cap (per person)</label><input id="cw-cap" type="number" step="0.5" min="1" max="50" value="${cw.cap}" class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
     </div>`;
+  } else if (m.type === 'admin-task-runner') {
+    title = m.taskLabel || 'Maintenance Task';
+    if (!m.log.length && !m.done) {
+      body = `<p class="text-sm text-gray-600">${esc(m.taskDescription || 'This runs in batches and may take a moment. Safe to run anytime — it re-syncs data without deleting or overwriting anything real.')}</p>`;
+      btnLabel = 'Start';
+    } else {
+      body = `<div class="space-y-1 max-h-64 overflow-y-auto text-xs font-mono bg-gray-50 rounded-lg p-3 border border-gray-100">
+        ${m.log.map(line => `<div class="${line.includes('⚠') ? 'text-amber-700' : 'text-gray-600'}">${esc(line)}</div>`).join('')}
+      </div>
+      ${m.done ? `<div class="mt-3 text-sm font-semibold ${m.totalFailed ? 'text-amber-600' : 'text-green-600'}">${m.totalFailed ? `⚠ Done — ${m.totalProcessed} processed, ${m.totalFailed} failed (see log above)` : `✓ Done — ${m.totalProcessed} processed successfully`}</div>` : ''}`;
+      btnLabel = m.done ? 'Close' : 'Running…';
+    }
   } else if (m.type === 'confirm') {
     title = 'Confirm'; btnLabel = 'Delete'; btnCls = 'bg-rose-600 hover:bg-rose-700';
     body = `<p class="text-sm text-gray-600">${esc(m.msg || 'Are you sure? This cannot be undone.')}</p>`;
   }
   const busy = !!m.busy;
-  const busyLabel = m.type === 'confirm' ? 'Deleting…' : 'Saving…';
+  const busyLabel = m.type === 'confirm' ? 'Deleting…' : m.type === 'admin-task-runner' ? 'Running…' : 'Saving…';
+  const hideCancel = m.type === 'admin-task-runner' && (m.log.length > 0 || m.done);
   return `<div class="k-modal-overlay fade" id="modal-overlay">
-  <div class="k-modal modal-pop" style="max-width:${['add-ams-entry', 'edit-ams-entry', 'bulk-import-users', 'portfolio-export', 'import-ams-entries', 'import-integrations'].includes(m.type) ? '640px' : '440px'};">
+  <div class="k-modal modal-pop" style="max-width:${['add-ams-entry', 'edit-ams-entry', 'bulk-import-users', 'portfolio-export', 'import-ams-entries', 'import-integrations', 'admin-task-runner'].includes(m.type) ? '640px' : '440px'};">
     <div class="k-modal-header flex items-center justify-between">
       <h2 class="k-h2">${esc(title)}</h2>
       <button data-act="modal-close" ${busy ? 'disabled' : ''} class="k-btn k-btn-ghost k-btn-sm" style="height:28px;width:28px;padding:0;">✕</button>
     </div>
     <div class="k-modal-body">${body}</div>
     <div class="k-modal-footer">
-      <button data-act="modal-close" ${busy ? 'disabled' : ''} class="k-btn k-btn-secondary">Cancel</button>
+      ${hideCancel ? '' : `<button data-act="modal-close" ${busy ? 'disabled' : ''} class="k-btn k-btn-secondary">Cancel</button>`}
       <button data-act="modal-confirm" ${busy ? 'disabled' : ''} class="k-btn k-btn-primary" style="min-width:120px;">${busy ? spinnerSvg() + busyLabel : btnLabel}</button>
     </div>
   </div>
