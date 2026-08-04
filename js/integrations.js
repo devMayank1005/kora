@@ -15,12 +15,31 @@ function parseIntegrationsCsv(text, existingIntegs = []) {
   });
 }
 
+// Client rail sort — 'name' (alphabetical), 'health' (worst RAG first), or
+// 'overdue' (most overdue integrations first). Kept local to this file since
+// it's rail-display logic, not shared elsewhere.
+function sortRailClients(list, sortKey) {
+  const arr = [...list];
+  if (sortKey === 'health') {
+    const rank = { Red: 0, Amber: 1, Green: 2 };
+    arr.sort((a, b) => (rank[integRagLabel(a)] ?? 3) - (rank[integRagLabel(b)] ?? 3) || a.name.localeCompare(b.name));
+  } else if (sortKey === 'overdue') {
+    const odCount = cl => cl.integrations.filter(isOverdue).length;
+    arr.sort((a, b) => odCount(b) - odCount(a) || a.name.localeCompare(b.name));
+  } else {
+    arr.sort((a, b) => a.name.localeCompare(b.name));
+  }
+  return arr;
+}
 function renderClientDetail(clientId) {
   const inIntegDomain = x => x.integrations.length > 0 || (x.modules === undefined && x.workLog === undefined);
   const allClients = S.clients.filter(inIntegDomain);
   const c = S.clients.find(x => x.id === clientId) || allClients[0];
   if (!c) return `<div class="k-page fade"><div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('inbox')}No clients yet. <button data-act="modal-open" data-modal="add-client" class="text-[#0e7490] font-medium ml-1">Add one</button></div></div>`;
-  const fl = S.filter === 'all' ? c.integrations : c.integrations.filter(i => i.status === S.filter);
+  const railQ = S.integRailFilter.trim().toLowerCase();
+  const railClients = sortRailClients(railQ ? allClients.filter(cl => cl.name.toLowerCase().includes(railQ)) : allClients, S.integRailSort);
+  const fl = (S.filter === 'all' ? c.integrations : c.integrations.filter(i => i.status === S.filter))
+    .filter(i => !S.integMineOnly || (i.assignee || '').trim().toLowerCase() === (S.user?.name || '').trim().toLowerCase());
   const sorted = sortIntegs(fl);
   const cols = [['name', 'Integration'], ['status', 'Status'], ['assignee', 'Assignee'], ['due', 'Due Date'], ['lastUpdate', 'Last Update']];
 
@@ -29,12 +48,20 @@ function renderClientDetail(clientId) {
   // Stacked vertically since the column is narrow, but each entry is a
   // genuine card: rounded, bordered, hover-lift — not a dense list row.
   const clientRail = `<div class="overflow-y-auto pr-1" style="max-height:calc(100vh - 132px);">
-    <div class="flex items-center justify-between mb-3 px-1">
-      <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">${allClients.length} Client${allClients.length !== 1 ? 's' : ''}</span>
+    <div class="flex items-center justify-between mb-2 px-1">
+      <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">${railClients.length}${railClients.length !== allClients.length ? ` of ${allClients.length}` : ''} Client${allClients.length !== 1 ? 's' : ''}</span>
       <button data-act="modal-open" data-modal="add-client" title="Add Client" class="text-[#0e7490] text-lg leading-none font-bold">+</button>
     </div>
+    <div class="flex items-center gap-1.5 mb-3 px-1">
+      <input type="text" id="integ-rail-filter-inp" data-act="integ-rail-filter" value="${esc(S.integRailFilter)}" placeholder="Filter clients…" class="flex-1 min-w-0 text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
+      <select data-act="integ-rail-sort" class="text-xs border border-gray-200 rounded-lg px-1.5 py-1.5 text-gray-500 focus:outline-none focus:ring-2 focus:ring-[#0e7490]" title="Sort clients">
+        <option value="name"${S.integRailSort === 'name' ? ' selected' : ''}>Name</option>
+        <option value="health"${S.integRailSort === 'health' ? ' selected' : ''}>Health</option>
+        <option value="overdue"${S.integRailSort === 'overdue' ? ' selected' : ''}>Overdue</option>
+      </select>
+    </div>
     <div class="flex flex-col gap-3">
-      ${allClients.map(cl => {
+      ${!railClients.length ? `<div class="text-center py-8 text-xs text-gray-400">No clients match "${esc(S.integRailFilter)}"</div>` : railClients.map(cl => {
     const ar = cl.integrations.filter(i => i.status === 'At Risk').length;
     const od = cl.integrations.filter(isOverdue).length;
     const total = cl.integrations.length;
@@ -77,6 +104,7 @@ function renderClientDetail(clientId) {
   </div>
   <div class="flex gap-2 overflow-x-auto pb-1 mb-4 items-center">
     ${['all', ...STATUSES].map(st => `<button data-act="filter" data-filter="${st}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full transition ${S.filter === st ? 'bg-[#0e7490] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-[#0e7490]/40'}">${st === 'all' ? `All (${c.integrations.length})` : esc(st) + ` (${c.integrations.filter(i => i.status === st).length})`}</button>`).join('')}
+    <button data-act="toggle-integ-mine" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full transition ${S.integMineOnly ? 'bg-[#0e7490] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-[#0e7490]/40'}">👤 Mine</button>
     <button data-act="modal-open" data-modal="add-integ" data-cid="${esc(c.id)}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 ml-auto">+ Add Integration</button>
   </div>
   ${S.bulkIntegMode && S.bulkIntegCid === c.id ? `<div class="flex items-center gap-3 mb-3 px-4 py-2.5 bg-rose-50 border border-rose-200 rounded-xl">
@@ -104,7 +132,7 @@ function renderClientDetail(clientId) {
               <span class="text-xs shrink-0 ${isOverdue(i) ? 'text-rose-600 font-semibold' : 'text-gray-400'}">${fmtDate(i.dueDate)}</span>
             </div>
             <div class="text-xs text-gray-500 truncate mt-0.5">${i.description ? esc(i.description) : '—'}</div>
-            <div class="flex gap-1.5 mt-1.5">${sbadge(i.status)}${overdueBadge(i)}</div>
+            <div class="flex gap-1.5 mt-1.5">${sbadge(i.status)}${overdueBadge(i)}${staleBadge(i)}</div>
           </div>
         </div>`;
       }).join('')}
@@ -112,7 +140,10 @@ function renderClientDetail(clientId) {
     <div class="col-span-3 p-5 overflow-y-auto" style="max-height:640px;">
       <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div class="flex items-center gap-2 flex-wrap">${sbadge(sel.status)}${overdueBadge(sel)}</div>
-        <button data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Open Full Record →</button>
+        <div class="flex items-center gap-2">
+          <button data-act="copy-link" data-url="${esc((window?.location?.origin || '') + viewToPath('integ-detail', { clientId: c.id, integId: sel.id }))}" title="Copy shareable link" class="text-xs font-medium text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-[#0e7490] hover:text-[#0e7490] transition">🔗 Copy Link</button>
+          <button data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Open Full Record →</button>
+        </div>
       </div>
       <h3 class="text-base font-semibold text-gray-900 mb-1">${esc(sel.name)}</h3>
       <div class="text-sm text-gray-600 mb-4 leading-relaxed">${sel.description ? esc(sel.description) : '—'}</div>
@@ -128,18 +159,22 @@ function renderClientDetail(clientId) {
     </div>
   </div>`;
     })()}
-  ${S.bulkIntegMode && S.bulkIntegCid === c.id ? `<div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-xl px-6 py-4 flex items-center justify-between gap-4">
+  ${S.bulkIntegMode && S.bulkIntegCid === c.id ? `<div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
     <div class="flex items-center gap-3">
       <div class="w-9 h-9 rounded-full bg-rose-100 flex items-center justify-center text-sm font-bold text-rose-700">${S.bulkIntegSelected.size}</div>
       <div>
         <div class="font-semibold text-gray-900 text-sm">${S.bulkIntegSelected.size === 0 ? 'No integrations selected' : S.bulkIntegSelected.size === 1 ? '1 integration selected' : `${S.bulkIntegSelected.size} integrations selected`}</div>
-        <div class="text-xs text-gray-400">This cannot be undone</div>
+        <div class="text-xs text-gray-400">Reassign, change status, or delete</div>
       </div>
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2 flex-wrap">
+      <select id="bulk-reassign-select" class="text-xs border border-gray-200 rounded-lg px-2 py-2">${assigneeOptionsOnly('')}</select>
+      <button data-act="bulk-reassign-integ" data-cid="${esc(c.id)}" ${S.bulkIntegSelected.size === 0 ? 'disabled class="bg-gray-100 text-gray-400 text-xs font-semibold px-3 py-2 rounded-lg cursor-not-allowed"' : 'class="bg-gray-50 border border-gray-200 hover:border-[#0e7490] hover:text-[#0e7490] text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg transition"'}>Reassign</button>
+      <select id="bulk-status-select" class="text-xs border border-gray-200 rounded-lg px-2 py-2">${STATUSES.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}</select>
+      <button data-act="bulk-status-integ" data-cid="${esc(c.id)}" ${S.bulkIntegSelected.size === 0 ? 'disabled class="bg-gray-100 text-gray-400 text-xs font-semibold px-3 py-2 rounded-lg cursor-not-allowed"' : 'class="bg-gray-50 border border-gray-200 hover:border-[#0e7490] hover:text-[#0e7490] text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg transition"'}>Set Status</button>
       <button data-act="toggle-bulk-integ" data-cid="${esc(c.id)}" class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
       <button data-act="bulk-delete-integ" data-cid="${esc(c.id)}" ${S.bulkIntegSelected.size === 0 ? 'disabled class="bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-2 rounded-xl cursor-not-allowed"' : 'class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-5 py-2 rounded-xl transition"'}>
-        🗑 Delete ${S.bulkIntegSelected.size || ''} Selected
+        🗑 Delete
       </button>
     </div>
   </div>
@@ -169,6 +204,7 @@ function renderIntegDetail(clientId, integId) {
   return `<div class="max-w-6xl mx-auto px-6 py-7 fade">
   <div class="flex items-center gap-3 mb-2 flex-wrap">
     <h1 class="text-xl font-bold text-gray-900">${esc(i.name)}</h1>${sbadge(i.status)}${overdueBadge(i)}
+    <button data-act="copy-link" data-url="${esc((window?.location?.origin || '') + viewToPath('integ-detail', { clientId: c.id, integId: i.id }))}" title="Copy shareable link" class="text-xs font-medium text-gray-400 border border-gray-200 rounded-lg px-2.5 py-1 hover:border-[#0e7490] hover:text-[#0e7490] transition ml-auto">🔗 Copy Link</button>
   </div>
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5">
     <div class="bg-white rounded-2xl border border-gray-100 p-6">
@@ -252,6 +288,7 @@ function renderIntegDetail(clientId, integId) {
               ${can('edit') ? `<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>` : ''}
               ${can('admin') ? `<button data-act="delete-timeline-entry" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>` : ''}
               <button data-act="copy-update" data-text="${esc(t.update)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Copy</button>
+              <button data-act="toggle-reaction" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" title="Acknowledge" class="text-[11px] ${(t.reactions || []).includes(S.user?.name) ? 'text-[#0e7490] font-semibold' : 'text-gray-400 hover:text-[#0e7490]'}">👍${(t.reactions || []).length ? ` ${t.reactions.length}` : ''}</button>
             </div>
             ${isExpanded && hasHistory ? `<div class="mt-2 pl-3 border-l-2 border-amber-200 space-y-2">
               ${[...t.edits].reverse().map(e => `<div class="text-xs"><div class="text-gray-400 mb-0.5">${fmtDate(e.editedAt)} · ${esc(e.editedBy || '')} changed it from:</div><div class="text-gray-500">${esc(e.text)}</div></div>`).join('')}
@@ -269,7 +306,7 @@ function renderIntegDetail(clientId, integId) {
     </div>
     ${(i.milestones || []).length ? `<div class="space-y-2">
       ${(i.milestones || []).map(ms => {
-        const msColor = ms.status === 'Achieved' ? 'green' : ms.status === 'Missed' ? 'rose' : 'amber';
+        const msColor = ms.status === 'Achieved' ? 'green' : ms.status === 'Missed' ? 'rose' : milestoneUrgencyColor(ms);
         return `<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-gray-200 transition">
           <div class="w-2 h-2 rounded-full bg-${msColor}-500 shrink-0"></div>
           <div class="flex-1 min-w-0">

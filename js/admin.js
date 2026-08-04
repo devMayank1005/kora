@@ -29,7 +29,10 @@ function renderAdminImpl(){
   </div>
   <div class="flex items-center justify-between gap-3 mb-4">
     ${adminSearchBar('Search clients…')}
-    <button data-act="modal-open" data-modal="add-impl-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition whitespace-nowrap">+ Add Client</button>
+    <div class="flex gap-2">
+      <button data-act="exp-admin-excel" data-domain="impl" class="bg-gray-50 border border-gray-200 text-gray-600 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-100 transition whitespace-nowrap">⬇ Export Excel</button>
+      <button data-act="modal-open" data-modal="add-impl-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition whitespace-nowrap">+ Add Client</button>
+    </div>
   </div>
   <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
     <table class="w-full text-sm">
@@ -76,7 +79,10 @@ function renderAdminAms(){
   </div>
   <div class="flex items-center justify-between gap-3 mb-4">
     ${adminSearchBar('Search clients…')}
-    <button data-act="modal-open" data-modal="add-ams-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition whitespace-nowrap">+ Add Client</button>
+    <div class="flex gap-2">
+      <button data-act="exp-admin-excel" data-domain="ams" class="bg-gray-50 border border-gray-200 text-gray-600 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-100 transition whitespace-nowrap">⬇ Export Excel</button>
+      <button data-act="modal-open" data-modal="add-ams-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition whitespace-nowrap">+ Add Client</button>
+    </div>
   </div>
   <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
     <table class="w-full text-sm">
@@ -123,7 +129,10 @@ function renderAdminClients(){
   </div>
   <div class="flex items-center justify-between gap-3 mb-4">
     ${adminSearchBar('Search clients…')}
-    <button data-act="modal-open" data-modal="add-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition whitespace-nowrap">+ Add Client</button>
+    <div class="flex gap-2">
+      <button data-act="exp-admin-excel" data-domain="integrations" class="bg-gray-50 border border-gray-200 text-gray-600 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-100 transition whitespace-nowrap">⬇ Export Excel</button>
+      <button data-act="modal-open" data-modal="add-client" class="btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition whitespace-nowrap">+ Add Client</button>
+    </div>
   </div>
   <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
     <table class="w-full text-sm">
@@ -171,6 +180,9 @@ function renderAdminAudit(){
   const rows=S.auditRows||[];
   const totalPages=Math.max(1,Math.ceil((S.auditTotal||0)/S.auditPageSize));
   return`<div>
+  <div class="flex gap-2 mb-3 flex-wrap">
+    ${[['24h', 'Last 24 Hours'], ['deletes', 'All Deletes'], ['logins', 'All Logins']].map(([k, l]) => `<button data-act="audit-preset" data-key="${k}" class="text-xs font-medium px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-[#0e7490] hover:text-[#0e7490] transition">${l}</button>`).join('')}
+  </div>
   <div class="flex items-end gap-3 mb-4 flex-wrap">
     <div>
       <label class="block text-xs font-semibold text-gray-500 mb-1">From</label>
@@ -240,11 +252,24 @@ function renderAdminUsers(){
     <p class="text-xs text-gray-400 mb-3">One-time or repair tasks. Safe to re-run anytime — none of these touch your live records, only their backing/derived data.</p>
     <div class="flex flex-wrap gap-2">
       <button data-act="modal-open" data-modal="admin-task-runner" data-task-label="Resync V2 Tables" data-task-endpoint="/api/backfill-v2" data-task-description="Re-syncs every client into the new normalized v2 tables — catches up anything created before dual-write existed, or anything a save silently failed to sync." class="text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:border-[#0e7490] hover:text-[#0e7490] transition">🔄 Resync V2 Tables</button>
+      <button data-act="recompute-snapshot-now" class="text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:border-[#0e7490] hover:text-[#0e7490] transition">📸 Recompute Snapshot Now</button>
+    </div>
+  </div>
+  <div class="k-card mb-5" style="padding:16px 18px;">
+    <h3 class="text-sm font-bold text-gray-900 mb-1">Preview Mode</h3>
+    <p class="text-xs text-gray-400 mb-3">See the app as an editor or viewer would. Your real access is unchanged — this only changes what you see, and you can exit anytime from the banner at the top.</p>
+    <div class="flex items-center gap-2">
+      <select id="view-as-select" class="text-xs border border-gray-200 rounded-lg px-2.5 py-2">
+        <option value="editor">Editor</option>
+        <option value="viewer">Viewer</option>
+      </select>
+      <button data-act="activate-view-as" class="text-xs font-medium px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:border-[#0e7490] hover:text-[#0e7490] transition">👁 Preview</button>
     </div>
   </div>
   <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
     ${adminSearchBar('Search name, username, or email…')}
     <div class="flex gap-2">
+      <button data-act="toggle-bulk-users" class="whitespace-nowrap text-sm font-medium px-4 py-2 rounded-xl transition border ${S.bulkUserMode ? 'bg-rose-50 border-rose-200 text-rose-600' : 'border-gray-200 text-gray-600 hover:border-gray-300'}">${S.bulkUserMode ? '✕ Cancel' : '☑ Bulk Role'}</button>
       <button data-act="force-logout-all" class="bg-rose-50 border border-rose-200 text-rose-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-rose-100 transition whitespace-nowrap">🔒 Force Logout All</button>
       <button data-act="send-welcome-all" class="bg-green-50 border border-green-200 text-green-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-green-100 transition whitespace-nowrap">✉ Send Welcome to All</button>
       <button data-act="modal-open" data-modal="bulk-import-users" class="bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-amber-100 transition whitespace-nowrap">⬆ Import (CSV)</button>
@@ -254,13 +279,14 @@ function renderAdminUsers(){
   <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
     <table class="w-full text-sm">
       <thead class="border-b border-gray-100 bg-gray-50 sticky-head"><tr>
-        ${['Username','Full Name','Email','Role',''].map(h=>`<th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">${h}</th>`).join('')}
+        ${['Username','Full Name','Email','Last Active','Role',''].map(h=>`<th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">${h}</th>`).join('')}
       </tr></thead>
       <tbody class="divide-y divide-gray-50">
         ${filtered.length?filtered.map(u=>`<tr class="hover:bg-gray-50/50 transition">
-          <td class="px-4 py-3 font-mono text-xs text-gray-700">${esc(u.username)}${u.lockedUntil&&new Date(u.lockedUntil)>new Date()?`<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5 normal-case">🔒 Locked</span>`:''}</td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-700">${S.bulkUserMode&&u.id!==S.user?.id?`<input type="checkbox" ${S.bulkUserSelected.has(u.id)?'checked':''} class="rounded mr-2 align-middle" data-act="toggle-bulk-user-row" data-uid="${esc(u.id)}"/>`:''}${esc(u.username)}${u.lockedUntil&&new Date(u.lockedUntil)>new Date()?`<span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-full px-2 py-0.5 normal-case">🔒 Locked</span>`:''}</td>
           <td class="px-4 py-3 font-medium text-gray-900">${esc(u.name)}</td>
           <td class="px-4 py-3 text-xs text-gray-500">${esc(u.email||'—')}</td>
+          <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">${S.lastActiveMap[u.username]?fmtDateTime(S.lastActiveMap[u.username]):'<span class="text-gray-300">Never</span>'}</td>
           <td class="px-4 py-3">${can('admin')&&u.id!==S.user?.id
             ?`<select data-act="change-role" data-uid="${esc(u.id)}" class="border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${ROLES.map(r=>`<option${r===u.role?' selected':''}>${r}</option>`).join('')}</select>`
             :roleBadge(u.role)}
@@ -276,9 +302,21 @@ function renderAdminUsers(){
                 ])}
               </div>`
             :`<span class="text-xs text-gray-300">current user</span>`}</td>
-        </tr>`).join(''):`<tr><td colspan="5" class="text-center py-8 text-gray-400 text-sm">${q?'No users match your search':'No users yet'}</td></tr>`}
+        </tr>`).join(''):`<tr><td colspan="6" class="text-center py-8 text-gray-400 text-sm">${q?'No users match your search':'No users yet'}</td></tr>`}
       </tbody>
     </table>
   </div>
+  ${S.bulkUserMode ? `<div class="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-xl px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-[#0e7490]/10 flex items-center justify-center text-sm font-bold text-[#0e7490]">${S.bulkUserSelected.size}</div>
+      <div class="font-semibold text-gray-900 text-sm">${S.bulkUserSelected.size===0?'No users selected':`${S.bulkUserSelected.size} user${S.bulkUserSelected.size!==1?'s':''} selected`}</div>
+    </div>
+    <div class="flex items-center gap-2">
+      <select id="bulk-role-select" class="text-sm border border-gray-200 rounded-xl px-3 py-2">${ROLES.map(r=>`<option value="${r}">${r}</option>`).join('')}</select>
+      <button data-act="toggle-bulk-users" class="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition">Cancel</button>
+      <button data-act="bulk-role-apply" ${S.bulkUserSelected.size===0?'disabled class="bg-gray-100 text-gray-400 text-sm font-semibold px-5 py-2 rounded-xl cursor-not-allowed"':'class="btn-grad text-white text-sm font-semibold px-5 py-2 rounded-xl transition"'}>Apply Role</button>
+    </div>
+  </div>
+  <div class="h-20"></div>`:''}
 </div>`;
 }

@@ -576,6 +576,36 @@ function exportAuditExcel(rows){
   showToast(`Excel downloaded ✓ (${data.length} events)`);
 }
 
+// Portfolio-wide raw export for an Admin table — every client's summary row,
+// not just one client's detail (that's what exportExcel(type, clientId) is
+// for). Mirrors exportAuditExcel's global-dump style.
+function exportAdminTableExcel(domain){
+  if(typeof XLSX==='undefined'){showToast('Excel export not available','error');return;}
+  let headers,data,sheetName;
+  if(domain==='integrations'){
+    const clients=S.clients.filter(c=>c.integrations.length>0||(c.modules===undefined&&c.workLog===undefined));
+    headers=['Client','Integrations','At Risk','Completed'];
+    data=clients.map(c=>{const ar=c.integrations.filter(i=>i.status==='At Risk').length;const co=c.integrations.filter(i=>i.status==='Completed').length;return[c.name,c.integrations.length,ar,co];});
+    sheetName='Integrations';
+  }else if(domain==='impl'){
+    const clients=S.clients.filter(c=>c.modules!==undefined);
+    headers=['Client','Modules','At Risk Phases'];
+    data=clients.map(c=>{const pr=implProgress(c);return[c.name,(c.modules||[]).length,pr.atRisk];});
+    sheetName='Implementation';
+  }else if(domain==='ams'){
+    const clients=S.clients.filter(c=>c.workLog!==undefined);
+    headers=['Client','Day Rate','Total Hours Logged'];
+    data=clients.map(c=>{const t=amsTotals(c,'','');return[c.name,c.manDayRate||'Retainer',t.totalHours.toFixed(1)];});
+    sheetName='AMS';
+  }else return;
+  const ws=XLSX.utils.aoa_to_sheet([headers,...data]);
+  const range=XLSX.utils.decode_range(ws['!ref']);
+  for(let C=range.s.c;C<=range.e.c;C++){const cell=XLSX.utils.encode_cell({r:0,c:C});if(ws[cell])ws[cell].s={font:{bold:true}};}
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,exportFilename('Kora',`${sheetName}_Portfolio`,'xlsx'));
+  showToast('Excel downloaded ✓');
+}
+
 function exportConsolidatedPdf(clientIds, sections){
   if(!clientIds.length){showToast('Select at least one client','error');return;}
   if(typeof window.jspdf==='undefined'){showToast('PDF export library failed to load — check your connection and refresh','error');return;}

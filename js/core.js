@@ -1,7 +1,7 @@
 const KOGNOZ_LOGO = "/kognoz_Iogo.png";
 let _bgRefreshTimer = null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
-const S = { user: null, clients: [], archivedClients: [], users: [], usersForDropdown: [], shas: { clients: null, users: null }, sessionToken: null, view: 'login', params: {}, adminTab: 'integrations', filter: 'all', search: '', modal: null, toast: null, sidebarCollapsed: false, sidebarClientsOpen: false, sort: { key: 'name', dir: 'asc' }, editingTimelineId: null, expandedHistory: new Set(), amsFrom: '', amsTo: '', amsQuick: '', editingAmsEntryId: null, expandedAmsHistory: new Set(), selectedAmsEntryId: null, selectedIntegId: null, openExportMenu: null, cmdPaletteOpen: false, cmdQuery: '', cmdSelectedIdx: 0, recentlyViewed: [], darkMode: false, shortcutsHelpOpen: false, bulkImplMode: false, bulkImplCid: null, bulkSelected: new Set(), offlineMode: false, bulkIntegMode: false, bulkIntegCid: null, bulkIntegSelected: new Set(), dashAttnSort: { key: 'reason', dir: 'desc' }, dashClientSort: { key: 'name', dir: 'asc' }, dashAssigneeSort: { key: 'total', dir: 'desc' }, dashAssigneeSearch: '', dashAssigneeExpanded: new Set(), dashCapacityExpanded: new Set(), dashAssigneeFilter: 'all', dashCritSearch: '', dashCritFilter: 'all', adminSearch: '', auditRows: [], auditTotal: 0, auditPage: 0, auditPageSize: 50, auditFrom: '', auditTo: '', auditUser: '', auditSearch: '', auditLoading: false, auditLoaded: false, snapshotHistory: [], snapshotChecked: false, snapshotHistoryFetched: false, capacityWeights: { module: 1, pmo: 0.5, ams: 0.25, cap: 5 }, capacityWeightsFetched: false, pendingPath: null, authMessage: null };
+const S = { user: null, clients: [], archivedClients: [], users: [], usersForDropdown: [], shas: { clients: null, users: null }, sessionToken: null, view: 'login', params: {}, adminTab: 'integrations', filter: 'all', search: '', modal: null, toast: null, sidebarCollapsed: false, sidebarClientsOpen: false, sort: { key: 'name', dir: 'asc' }, editingTimelineId: null, expandedHistory: new Set(), amsFrom: '', amsTo: '', amsQuick: '', editingAmsEntryId: null, expandedAmsHistory: new Set(), selectedAmsEntryId: null, selectedIntegId: null, openExportMenu: null, cmdPaletteOpen: false, cmdQuery: '', cmdSelectedIdx: 0, recentlyViewed: [], darkMode: false, shortcutsHelpOpen: false, bulkImplMode: false, bulkImplCid: null, bulkSelected: new Set(), offlineMode: false, bulkIntegMode: false, bulkIntegCid: null, bulkIntegSelected: new Set(), dashAttnSort: { key: 'reason', dir: 'desc' }, dashClientSort: { key: 'name', dir: 'asc' }, dashAssigneeSort: { key: 'total', dir: 'desc' }, dashAssigneeSearch: '', dashAssigneeExpanded: new Set(), dashCapacityExpanded: new Set(), dashAssigneeFilter: 'all', dashCritSearch: '', dashCritFilter: 'all', adminSearch: '', auditRows: [], auditTotal: 0, auditPage: 0, auditPageSize: 50, auditFrom: '', auditTo: '', auditUser: '', auditSearch: '', auditLoading: false, auditLoaded: false, snapshotHistory: [], snapshotChecked: false, snapshotHistoryFetched: false, capacityWeights: { module: 1, pmo: 0.5, ams: 0.25, cap: 5 }, capacityWeightsFetched: false, pendingPath: null, authMessage: null, integRailFilter: '', integRailSort: 'name', integMineOnly: false, lastActiveMap: {}, lastActiveFetched: false, viewAsRole: null, bulkUserMode: false, bulkUserSelected: new Set() };
 
 try { S.sidebarCollapsed = localStorage.getItem('itk_sb_collapsed') === '1'; } catch (e) { }
 try { const r = localStorage.getItem('itk_recent'); if (r) S.recentlyViewed = JSON.parse(r); } catch (e) { }
@@ -130,7 +130,16 @@ function pwdToggleBtn(targetId) {
 }
 function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return s; } }
 function fmtDateTime(s) { if (!s) return '—'; try { return new Date(s).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); } catch { return s; } }
-function can(p) { if (!S.user) return false; const r = { admin: 3, editor: 2, viewer: 1 }; return (r[S.user.role] || 0) >= (r[p] || 0); }
+function can(p) {
+  if (!S.user) return false;
+  const r = { admin: 3, editor: 2, viewer: 1 };
+  // "View As" preview: an admin can temporarily see the app as an editor/viewer
+  // would. This ONLY affects this client-side gate — the real session token
+  // still carries the real role, so nothing is actually granted or revoked;
+  // it's a UI preview for the admin's own account, never a real permission change.
+  const effectiveRole = (S.user.role === 'admin' && S.viewAsRole) ? S.viewAsRole : S.user.role;
+  return (r[effectiveRole] || 0) >= (r[p] || 0);
+}
 function recordRecent(view, params) {
   let entry = null;
   if (view === 'client-detail') { const c = S.clients.find(x => x.id === params.clientId); if (c) entry = { type: 'client', label: c.name, sub: 'Integration Client', view, params: { clientId: c.id } }; }
@@ -213,6 +222,12 @@ function daysOverdue(i) { return daysDiff(i.dueDate); }
 function lastUpdateDate(i) { return i.timeline?.[0]?.date || null; }
 function isStale(i, days = 7) { if (i.status === 'Completed') return false; const lu = lastUpdateDate(i); if (!lu) return true; return daysDiff(lu) >= days; }
 function overdueBadge(i) { if (!isOverdue(i)) return ''; const d = daysOverdue(i); return `<span class="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">⏰ ${d}d overdue</span>`; }
+// Staleness badge — distinct from overdueBadge (no due date needed to trigger
+// this one). Never shown alongside overdueBadge; overdue already says enough.
+function staleBadge(i) { if (isOverdue(i) || !isStale(i, 7)) return ''; const lu = lastUpdateDate(i); const d = lu ? daysDiff(lu) : null; return `<span class="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">🕐 ${d !== null ? d + 'd stale' : 'No updates'}</span>`; }
+// Urgency color for a Pending milestone, based on due-date proximity — Achieved/Missed
+// milestones don't call this, they keep their own fixed green/rose.
+function milestoneUrgencyColor(ms) { if (!ms.dueDate) return 'amber'; const d = daysDiff(ms.dueDate); if (d > 0) return 'rose'; if (d >= -3) return 'orange'; return 'amber'; }
 function healthColor(c) { const ar = c.integrations.filter(i => i.status === 'At Risk').length; const od = c.integrations.filter(isOverdue).length; if (ar > 0 || od > 0) return 'bg-rose-500'; const oh = c.integrations.filter(i => i.status === 'On Hold — Internal' || i.status === 'On Hold — Client').length; if (oh > 0) return 'bg-violet-400'; return 'bg-green-500'; }
 function healthVar(c) { const cls = healthColor(c); if (cls === 'bg-rose-500') return 'var(--red)'; if (cls === 'bg-violet-400') return `#${VIOLET}`; return 'var(--green)'; }
 
@@ -240,35 +255,67 @@ const RAG_HEX = { Red: 'var(--red)', Amber: 'var(--amber)', Green: 'var(--green)
 // Snapshot capture — fire-and-forget, once per browser session per day.
 // Idempotent server-side (upsert on date+client), so calling this more than
 // once (multiple tabs, multiple people opening Dashboard the same day) is safe.
+function buildSnapshotRows() {
+  return S.clients.map(c => {
+    const integTotal = c.integrations?.length || 0;
+    const integAtRisk = (c.integrations || []).filter(i => i.status === 'At Risk').length;
+    const integInProgress = (c.integrations || []).filter(i => i.status === 'In Progress').length;
+    const integCompleted = (c.integrations || []).filter(i => i.status === 'Completed').length;
+    const isImpl = c.modules !== undefined;
+    const implRag = isImpl ? implAutoRag(c) : null;
+    const pr = isImpl ? implProgress(c) : { completed: 0, total: 0 };
+    const isAms = c.workLog !== undefined;
+    const amsRag = isAms ? amsClientRag(c) : null;
+    const openEntries = (c.workLog || []).filter(e => e.entryStatus !== 'Closed');
+    const amsOpenL3L4 = openEntries.filter(e => { const q = e.queryLevel || ''; return q.includes('L3') || q.includes('L4'); }).length;
+    const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+    const amsHoursMonth = isAms ? amsTotals(c, monthStart, todayStr()).totalHours : 0;
+    const overallRag = overallRagLabel(integRagLabel(c), implRag, amsRag);
+    return {
+      clientId: c.id, clientName: c.name, integTotal, integAtRisk, integInProgress, integCompleted,
+      implRag, implTotalPhases: pr.total, implCompletedPhases: pr.completed,
+      amsRag, amsOpenEntries: openEntries.length, amsOpenL3L4, amsHoursMonth, overallRag
+    };
+  });
+}
 async function ensureSnapshotCaptured() {
   const today = todayStr();
   if (S.snapshotChecked) return;
   S.snapshotChecked = true;
   try {
-    const rows = S.clients.map(c => {
-      const integTotal = c.integrations?.length || 0;
-      const integAtRisk = (c.integrations || []).filter(i => i.status === 'At Risk').length;
-      const integInProgress = (c.integrations || []).filter(i => i.status === 'In Progress').length;
-      const integCompleted = (c.integrations || []).filter(i => i.status === 'Completed').length;
-      const isImpl = c.modules !== undefined;
-      const implRag = isImpl ? implAutoRag(c) : null;
-      const pr = isImpl ? implProgress(c) : { completed: 0, total: 0 };
-      const isAms = c.workLog !== undefined;
-      const amsRag = isAms ? amsClientRag(c) : null;
-      const openEntries = (c.workLog || []).filter(e => e.entryStatus !== 'Closed');
-      const amsOpenL3L4 = openEntries.filter(e => { const q = e.queryLevel || ''; return q.includes('L3') || q.includes('L4'); }).length;
-      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-      const amsHoursMonth = isAms ? amsTotals(c, monthStart, todayStr()).totalHours : 0;
-      const overallRag = overallRagLabel(integRagLabel(c), implRag, amsRag);
-      return {
-        clientId: c.id, clientName: c.name, integTotal, integAtRisk, integInProgress, integCompleted,
-        implRag, implTotalPhases: pr.total, implCompletedPhases: pr.completed,
-        amsRag, amsOpenEntries: openEntries.length, amsOpenL3L4, amsHoursMonth, overallRag
-      };
-    });
+    const rows = buildSnapshotRows();
     if (!rows.length) return;
     await fetch('/api/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ rows }) });
   } catch (e) {/* never let snapshot capture break the dashboard */ }
+}
+// Manual "Recompute Snapshot Now" (Admin → System Maintenance) — reuses the
+// exact same row-building + upsert-by-date logic as the automatic daily
+// capture above (idempotent on the server, so calling it early/again is safe).
+async function recomputeSnapshotNow() {
+  const rows = buildSnapshotRows();
+  if (!rows.length) throw new Error('No clients to snapshot');
+  const r = await fetch('/api/snapshot', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ rows }) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || 'Snapshot failed');
+  S.snapshotHistoryFetched = false; // force the trend history to refetch next time it's shown
+  return d;
+}
+// "Last Active" (Admin → Users) — reuses the existing admin-only /api/audit
+// endpoint rather than a new backend route: one call for "Login success"
+// rows ordered newest-first, reduced client-side to the first (= most
+// recent) row per username.
+async function loadLastActive() {
+  if (S.lastActiveFetched) return;
+  S.lastActiveFetched = true;
+  try {
+    const r = await fetch(`/api/audit?q=${encodeURIComponent('Login success')}&limit=200`, { headers: { 'x-session-token': S.sessionToken || '' } });
+    if (!r.ok) return;
+    const d = await r.json();
+    const map = {};
+    (d.rows || []).forEach(row => { if (row.username && !map[row.username]) map[row.username] = row.ts; });
+    S.lastActiveMap = map;
+    render();
+  } catch (e) {/* non-critical, table just shows "Never" */ }
 }
 async function fetchSnapshotHistory(days = 14) {
   if (S.snapshotHistoryFetched) return;

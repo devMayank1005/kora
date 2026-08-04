@@ -37,7 +37,7 @@ document.addEventListener('click', async e => {
     _bgRefreshTimer = setInterval(backgroundRefreshClients, 60000);
     return;
   }
-  if (act === 'logout') { clearInterval(_bgRefreshTimer); _bgRefreshTimer = null; clearSession(); S.user = null; S.clients = []; S.users = []; S.usersForDropdown = []; S.shas = { clients: null, users: null }; S.sessionToken = null; navigate('login'); return; }
+  if (act === 'logout') { clearInterval(_bgRefreshTimer); _bgRefreshTimer = null; clearSession(); S.user = null; S.clients = []; S.users = []; S.usersForDropdown = []; S.shas = { clients: null, users: null }; S.sessionToken = null; S.viewAsRole = null; S.lastActiveMap = {}; S.lastActiveFetched = false; S.bulkUserMode = false; S.bulkUserSelected = new Set(); navigate('login'); return; }
   if (act === 'nav-dashboard') { navigate('dashboard'); return; }
   if (act === 'nav-clients') { navigate('clients'); return; }
   if (act === 'nav-impl') { navigate('impl-clients'); return; }
@@ -75,9 +75,17 @@ document.addEventListener('click', async e => {
   if (act === 'dash-assignee-toggle') { const key = el.dataset.key; if (S.dashAssigneeExpanded.has(key)) S.dashAssigneeExpanded.delete(key); else S.dashAssigneeExpanded.add(key); render(); return; }
   if (act === 'dash-capacity-toggle') { const key = el.dataset.key; if (S.dashCapacityExpanded.has(key)) S.dashCapacityExpanded.delete(key); else S.dashCapacityExpanded.add(key); render(); return; }
   if (act === 'sort-dash-client') { const k = el.dataset.key; if (S.dashClientSort.key === k) { S.dashClientSort.dir = S.dashClientSort.dir === 'asc' ? 'desc' : 'asc'; } else { S.dashClientSort = { key: k, dir: 'asc' }; } render(); return; }
-  if (act === 'admin-tab') { S.adminTab = el.dataset.tab; S.adminSearch = ''; render(); if (el.dataset.tab === 'audit' && !S.auditLoaded) loadAuditLog(); return; }
+  if (act === 'admin-tab') { S.adminTab = el.dataset.tab; S.adminSearch = ''; render(); if (el.dataset.tab === 'audit' && !S.auditLoaded) loadAuditLog(); if (el.dataset.tab === 'users' && !S.lastActiveFetched) loadLastActive(); return; }
   if (act === 'audit-apply') { S.auditPage = 0; loadAuditLog(); return; }
   if (act === 'audit-clear') { S.auditFrom = ''; S.auditTo = ''; S.auditUser = ''; S.auditSearch = ''; S.auditPage = 0; loadAuditLog(); return; }
+  if (act === 'audit-preset') {
+    const key = el.dataset.key;
+    S.auditFrom = ''; S.auditTo = ''; S.auditUser = ''; S.auditSearch = '';
+    if (key === '24h') S.auditFrom = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    else if (key === 'deletes') S.auditSearch = 'delete';
+    else if (key === 'logins') S.auditSearch = 'login';
+    S.auditPage = 0; loadAuditLog(); return;
+  }
   if (act === 'audit-prev') { if (S.auditPage > 0) { S.auditPage--; loadAuditLog(); } return; }
   if (act === 'audit-next') { S.auditPage++; loadAuditLog(); return; }
   if (act === 'audit-export') { setBtnBusy(el, 'Exporting…'); try { const d = await fetchAuditLog({ export: true }); exportAuditExcel(d.rows); } catch (e) { showToast(e.message || 'Export failed', 'error'); } finally { clearBtnBusy(el); } return; }
@@ -259,8 +267,56 @@ document.addEventListener('click', async e => {
     const c = S.clients.find(x => x.id === el.dataset.cid); const i = c?.integrations.find(x => x.id === el.dataset.iid); const ms = (i?.milestones || []).find(x => x.id === el.dataset.mid); if (!ms) return;
     S.modal = { type: 'confirm', msg: `Delete milestone "${ms.name}"? Cannot be undone.`, _act: 'delete-milestone', _cid: el.dataset.cid, _iid: el.dataset.iid, _mid: ms.id }; render(); return;
   }
+  // ── Integrations: "Mine" quick filter, copy-link, reactions, bulk reassign/status ──
+  if (act === 'toggle-integ-mine') { S.integMineOnly = !S.integMineOnly; render(); return; }
+  if (act === 'copy-link') { try { await navigator.clipboard.writeText(el.dataset.url); showToast('Link copied ✓'); } catch (e) { showToast('Copy failed', 'error'); } return; }
+  if (act === 'toggle-reaction') {
+    const c = S.clients.find(x => x.id === el.dataset.cid); const i = c?.integrations.find(x => x.id === el.dataset.iid); if (!i) return;
+    const t = (i.timeline || []).find(x => x.id === el.dataset.tid); if (!t) return;
+    if (!t.reactions) t.reactions = [];
+    const me = S.user?.name;
+    const had = t.reactions.includes(me);
+    if (had) t.reactions = t.reactions.filter(n => n !== me); else t.reactions.push(me);
+    render();
+    try { await saveClients(`React: ${i.name}`, [c.id]); }
+    catch (err) { if (had) t.reactions.push(me); else t.reactions = t.reactions.filter(n => n !== me); showToast('Failed: ' + err.message, 'error'); render(); }
+    return;
+  }
+  if (act === 'bulk-reassign-integ') {
+    if (!can('admin')) return;
+    const cid = el.dataset.cid; const c = S.clients.find(x => x.id === cid); if (!c || !S.bulkIntegSelected.size) return;
+    const val = document.getElementById('bulk-reassign-select')?.value || '';
+    const ids = new Set(S.bulkIntegSelected);
+    const prev = new Map(c.integrations.filter(i => ids.has(i.id)).map(i => [i.id, i.assignee]));
+    c.integrations.forEach(i => { if (ids.has(i.id)) i.assignee = val; });
+    setBtnBusy(el, 'Reassigning…');
+    try {
+      await saveClients(`Bulk reassign ${ids.size} integration${ids.size !== 1 ? 's' : ''}: ${c.name}`, [cid]);
+      S.bulkIntegMode = false; S.bulkIntegCid = null; S.bulkIntegSelected = new Set();
+      showToast(`${ids.size} integration${ids.size !== 1 ? 's' : ''} reassigned ✓`);
+      navigate('client-detail', { clientId: cid });
+    } catch (err) { c.integrations.forEach(i => { if (prev.has(i.id)) i.assignee = prev.get(i.id); }); showToast('Failed: ' + err.message, 'error'); clearBtnBusy(el); }
+    return;
+  }
+  if (act === 'bulk-status-integ') {
+    if (!can('admin')) return;
+    const cid = el.dataset.cid; const c = S.clients.find(x => x.id === cid); if (!c || !S.bulkIntegSelected.size) return;
+    const val = document.getElementById('bulk-status-select')?.value; if (!val) return;
+    const ids = new Set(S.bulkIntegSelected);
+    const prev = new Map(c.integrations.filter(i => ids.has(i.id)).map(i => [i.id, i.status]));
+    c.integrations.forEach(i => { if (ids.has(i.id)) i.status = val; });
+    setBtnBusy(el, 'Saving…');
+    try {
+      await saveClients(`Bulk status ${ids.size} integration${ids.size !== 1 ? 's' : ''} → ${val}: ${c.name}`, [cid]);
+      S.bulkIntegMode = false; S.bulkIntegCid = null; S.bulkIntegSelected = new Set();
+      showToast(`${ids.size} integration${ids.size !== 1 ? 's' : ''} updated ✓`);
+      navigate('client-detail', { clientId: cid });
+    } catch (err) { c.integrations.forEach(i => { if (prev.has(i.id)) i.status = prev.get(i.id); }); showToast('Failed: ' + err.message, 'error'); clearBtnBusy(el); }
+    return;
+  }
   // ── Excel export handlers ──
   if (act === 'exp-excel') { setBtnBusy(el, 'Exporting…'); try { exportExcel(el.dataset.etype, el.dataset.cid); } finally { clearBtnBusy(el); } return; }
+  if (act === 'exp-admin-excel') { setBtnBusy(el, 'Exporting…'); try { exportAdminTableExcel(el.dataset.domain); } finally { clearBtnBusy(el); } return; }
   // ── Bulk CSV import handlers ──
   if (act === 'open-import-ams') {
     S.modal = { type: 'import-ams-entries', cid: el.dataset.cid }; render(); return;
@@ -508,6 +564,47 @@ document.addEventListener('click', async e => {
   if (act === 'clear-lockout') {
     if (!can('admin')) return; const u = S.users.find(x => x.id === el.dataset.uid); if (!u) return;
     S.modal = { type: 'confirm', msg: `Clear the login lockout for "${u.name}" (${u.username})? They'll be able to try logging in again immediately.`, _act: 'clear-lockout', _uid: u.id }; render(); return;
+  }
+  if (act === 'recompute-snapshot-now') {
+    if (!can('admin')) return;
+    setBtnBusy(el, 'Recomputing…');
+    try { const d = await recomputeSnapshotNow(); showToast(`Snapshot recomputed ✓ (${d.captured} client${d.captured !== 1 ? 's' : ''})`); }
+    catch (err) { showToast('Failed: ' + err.message, 'error'); }
+    finally { clearBtnBusy(el); }
+    return;
+  }
+  if (act === 'activate-view-as') {
+    if (S.user?.role !== 'admin') return;
+    const role = document.getElementById('view-as-select')?.value; if (!role) return;
+    S.viewAsRole = role; showToast(`Previewing as ${role}`); navigate('dashboard'); return;
+  }
+  if (act === 'exit-view-as') { S.viewAsRole = null; showToast('Exited preview — back to your real access'); render(); return; }
+  if (act === 'toggle-bulk-users') {
+    if (!can('admin')) return;
+    S.bulkUserMode = !S.bulkUserMode; S.bulkUserSelected = new Set(); render(); return;
+  }
+  if (act === 'toggle-bulk-user-row') {
+    if (!can('admin')) return;
+    const uid = el.dataset.uid;
+    if (S.bulkUserSelected.has(uid)) S.bulkUserSelected.delete(uid); else S.bulkUserSelected.add(uid);
+    render(); return;
+  }
+  if (act === 'bulk-role-apply') {
+    if (!can('admin')) return;
+    const role = document.getElementById('bulk-role-select')?.value; if (!role || !S.bulkUserSelected.size) return;
+    const ids = [...S.bulkUserSelected];
+    const prevRoles = new Map(ids.map(id => [id, S.users.find(u => u.id === id)?.role]));
+    ids.forEach(id => { const u = S.users.find(x => x.id === id); if (u) u.role = role; });
+    setBtnBusy(el, 'Saving…');
+    try {
+      await saveUsers(`Bulk role change: ${ids.length} user${ids.length !== 1 ? 's' : ''} → ${role}`, ids);
+      S.bulkUserMode = false; S.bulkUserSelected = new Set();
+      showToast(`${ids.length} user${ids.length !== 1 ? 's' : ''} updated ✓`); render();
+    } catch (err) {
+      ids.forEach(id => { const u = S.users.find(x => x.id === id); if (u) u.role = prevRoles.get(id); });
+      showToast('Failed: ' + err.message, 'error'); clearBtnBusy(el);
+    }
+    return;
   }
   if (act === 'modal-confirm') {
     const m = S.modal; if (!m || m.busy) return;
@@ -983,6 +1080,7 @@ document.addEventListener('change', async e => {
     return;
   }
   if (e.target.dataset?.act === 'integ-sort-select') { S.sort = { key: e.target.value, dir: 'asc' }; render(); return; }
+  if (e.target.dataset?.act === 'integ-rail-sort') { S.integRailSort = e.target.value; render(); return; }
   if (e.target.dataset?.act === 'audit-from') { S.auditFrom = e.target.value; return; }
   if (e.target.dataset?.act === 'audit-to') { S.auditTo = e.target.value; return; }
   if (e.target.dataset?.act === 'audit-user') { S.auditUser = e.target.value; S.auditPage = 0; loadAuditLog(); return; }
@@ -1033,6 +1131,7 @@ let _ct;
 let _dat;
 let _dct;
 let _adt;
+let _irft;
 document.addEventListener('input', e => {
   if (e.target.dataset?.act === 'search') {
     clearTimeout(_st); const v = e.target.value;
@@ -1055,6 +1154,10 @@ document.addEventListener('input', e => {
     _adt = setTimeout(() => { S.adminSearch = v; render(); setTimeout(() => { const el = document.getElementById('admin-search-inp'); if (el) { el.focus(); try { el.setSelectionRange(v.length, v.length); } catch { } } }, 10); }, 120);
   }
   if (e.target.dataset?.act === 'audit-search') { S.auditSearch = e.target.value; }
+  if (e.target.dataset?.act === 'integ-rail-filter') {
+    clearTimeout(_irft); const v = e.target.value;
+    _irft = setTimeout(() => { S.integRailFilter = v; render(); setTimeout(() => { const el = document.getElementById('integ-rail-filter-inp'); if (el) { el.focus(); try { el.setSelectionRange(v.length, v.length); } catch { } } }, 10); }, 150);
+  }
 });
 
 document.addEventListener('keydown', e => {
