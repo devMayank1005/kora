@@ -1,48 +1,5 @@
-// ─── CLIENT LIST ──────────────────────────────────────────────────
-function renderClientList() {
-  const q = S.search.toLowerCase();
-  const inIntegDomain = c => c.integrations.length > 0 || (c.modules === undefined && c.workLog === undefined);
-  const fl = S.clients.filter(inIntegDomain).filter(c => c.name.toLowerCase().includes(q));
-  const scoped = S.clients.filter(inIntegDomain);
-  const ti = scoped.reduce((a, c) => a + c.integrations.length, 0);
-  const ar = scoped.reduce((a, c) => a + c.integrations.filter(i => i.status === 'At Risk').length, 0);
-  const ip = scoped.reduce((a, c) => a + c.integrations.filter(i => i.status === 'In Progress').length, 0);
-  return `<div class="k-page fade">
-  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-    ${[['Clients', scoped.length, 'text-[#0e7490]', 'bg-[#0e7490]/10'], ['Total Integrations', ti, 'text-gray-700', 'bg-gray-100'], ['In Progress', ip, 'text-[#0e7490]', 'bg-cyan-50'], ['At Risk', ar, 'text-rose-600', 'bg-rose-50']].map(([l, v, tc, bg]) => `<div class="${bg} rounded-2xl p-4"><div class="text-2xl font-bold ${tc}">${v}</div><div class="text-xs text-gray-500 mt-0.5">${l}</div></div>`).join('')}
-  </div>
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
-    <h1 class="text-xl font-bold text-gray-900">Integrations</h1>
-    <div class="flex items-center gap-2">
-      <input id="search-inp" data-act="search" type="text" placeholder="Search clients…" value="${esc(S.search)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-52 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
-      <button data-act="modal-open" data-modal="add-client" class="whitespace-nowrap btn-grad text-white text-sm font-semibold px-4 py-2 rounded-xl transition">+ Add Client</button>
-    </div>
-  </div>
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    ${fl.length ? fl.map((c, idx) => {
-    const ar2 = c.integrations.filter(i => i.status === 'At Risk').length;
-    const od2 = c.integrations.filter(isOverdue).length;
-    const total = c.integrations.length;
-    const completed = c.integrations.filter(i => i.status === 'Completed').length;
-    const pct = total ? completed / total * 100 : 0;
-    return `<div data-act="open-client" data-id="${esc(c.id)}" style="animation-delay:${Math.min(idx * 35, 400)}ms" class="row-in card-hover bg-white rounded-2xl border border-gray-100 p-5 hover:border-[#0e7490]/30 transition cursor-pointer">
-        <div class="flex items-center gap-3.5">
-          ${ringSvg(pct, healthVar(c))}
-          <div class="flex-1 min-w-0">
-            <div class="font-semibold text-gray-900 truncate" title="${esc(c.name)}">${esc(c.name)}</div>
-            <div class="text-xs text-gray-400 mt-0.5 truncate">${c.description ? esc(c.description) : `${total} integration${total !== 1 ? 's' : ''}`}</div>
-          </div>
-        </div>
-        <div class="flex gap-5 mt-3.5 pt-3 border-t border-gray-100">
-          ${miniStat(total, 'integrations')}
-          ${miniStat(ar2, 'at risk', ar2 > 0 ? 'var(--red)' : undefined)}
-          ${miniStat(od2, 'overdue', od2 > 0 ? 'var(--amber)' : undefined)}
-        </div>
-      </div>`;
-  }).join('') : `<div class="col-span-3 text-center py-16 text-gray-400">${emptyIcon('search')}No clients match "${esc(S.search)}"</div>`}
-  </div>
-</div>`;
-}
+// ─── CLIENT LIST — replaced by the 3-column renderClientDetail below,
+// which now also handles the bare "no client selected yet" case ───
 function parseIntegrationsCsv(text, existingIntegs = []) {
   const lines = text.trim().split('\n').filter(l => l.trim());
   if (!lines.length) return [];
@@ -59,13 +16,53 @@ function parseIntegrationsCsv(text, existingIntegs = []) {
 }
 
 function renderClientDetail(clientId) {
-  const c = S.clients.find(x => x.id === clientId);
-  if (!c) return `<div class="p-8 text-gray-400">Client not found</div>`;
+  const inIntegDomain = x => x.integrations.length > 0 || (x.modules === undefined && x.workLog === undefined);
+  const allClients = S.clients.filter(inIntegDomain);
+  const c = S.clients.find(x => x.id === clientId) || allClients[0];
+  if (!c) return `<div class="k-page fade"><div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('inbox')}No clients yet. <button data-act="modal-open" data-modal="add-client" class="text-[#0e7490] font-medium ml-1">Add one</button></div></div>`;
   const fl = S.filter === 'all' ? c.integrations : c.integrations.filter(i => i.status === S.filter);
   const sorted = sortIntegs(fl);
   const cols = [['name', 'Integration'], ['status', 'Status'], ['assignee', 'Assignee'], ['due', 'Due Date'], ['lastUpdate', 'Last Update']];
-  return `<div class="k-page fade">
-  <div class="flex flex-wrap items-start justify-between gap-4 mb-5">
+
+  // ── COLUMN 1: client bento rail — real bento cards (ring + health color,
+  // same visual language as everywhere else in the app), not a flat list.
+  // Stacked vertically since the column is narrow, but each entry is a
+  // genuine card: rounded, bordered, hover-lift — not a dense list row.
+  const clientRail = `<div class="overflow-y-auto pr-1" style="max-height:calc(100vh - 132px);">
+    <div class="flex items-center justify-between mb-3 px-1">
+      <span class="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">${allClients.length} Client${allClients.length !== 1 ? 's' : ''}</span>
+      <button data-act="modal-open" data-modal="add-client" title="Add Client" class="text-[#0e7490] text-lg leading-none font-bold">+</button>
+    </div>
+    <div class="flex flex-col gap-3">
+      ${allClients.map(cl => {
+    const ar = cl.integrations.filter(i => i.status === 'At Risk').length;
+    const od = cl.integrations.filter(isOverdue).length;
+    const total = cl.integrations.length;
+    const completed = cl.integrations.filter(i => i.status === 'Completed').length;
+    const pct = total ? completed / total * 100 : 0;
+    const active = cl.id === c.id;
+    return `<div data-act="open-client" data-id="${esc(cl.id)}" class="card-hover cursor-pointer bg-white rounded-2xl border p-4 ${active ? 'border-[#0e7490] ring-1 ring-[#0e7490]/30' : 'border-gray-100'}">
+        <div class="flex items-center gap-3">
+          ${ringSvg(pct, healthVar(cl), 40)}
+          <div class="flex-1 min-w-0">
+            <div class="font-semibold text-sm truncate" style="color:${active ? '#0e7490' : '#111827'}">${esc(cl.name)}</div>
+            <div class="text-xs text-gray-400 mt-0.5 truncate">${total} integration${total !== 1 ? 's' : ''}</div>
+          </div>
+        </div>
+        ${ar || od ? `<div class="flex gap-3 mt-3 pt-2.5 border-t border-gray-50">
+          ${ar ? `<div class="text-xs"><span class="font-semibold text-rose-600">${ar}</span> <span class="text-gray-400">at risk</span></div>` : ''}
+          ${od ? `<div class="text-xs"><span class="font-semibold text-amber-600">${od}</span> <span class="text-gray-400">overdue</span></div>` : ''}
+        </div>` : ''}
+      </div>`;
+  }).join('')}
+    </div>
+  </div>`;
+
+  // ── COLUMNS 2+3: unchanged from the existing, already-shipped master-detail —
+  // reused verbatim, just no longer carrying its own top-level page header
+  // (that's now Column 1's job) since this is nested inside the 3-column grid.
+  const listAndDetail = `<div>
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
     <div><h1 class="text-xl font-bold text-gray-900">${esc(c.name)}</h1>${c.description ? `<p class="text-sm text-gray-400 mt-0.5">${esc(c.description)}</p>` : ''}</div>
     <div class="flex items-center gap-2">
     ${can('admin') ? `<button data-act="toggle-bulk-integ" data-cid="${esc(c.id)}" class="whitespace-nowrap text-sm font-medium px-4 py-2 rounded-xl transition ${S.bulkIntegMode && S.bulkIntegCid === c.id ? 'bg-rose-50 border border-rose-200 text-rose-600' : 'border border-gray-200 text-gray-600 hover:border-gray-300'}">${S.bulkIntegMode && S.bulkIntegCid === c.id ? '✕ Cancel' : '☑ Select'}</button>` : ''}
@@ -78,7 +75,7 @@ function renderClientDetail(clientId) {
   ])}
     </div>
   </div>
-  <div class="flex gap-2 overflow-x-auto pb-1 mb-5 items-center">
+  <div class="flex gap-2 overflow-x-auto pb-1 mb-4 items-center">
     ${['all', ...STATUSES].map(st => `<button data-act="filter" data-filter="${st}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full transition ${S.filter === st ? 'bg-[#0e7490] text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-[#0e7490]/40'}">${st === 'all' ? `All (${c.integrations.length})` : esc(st) + ` (${c.integrations.filter(i => i.status === st).length})`}</button>`).join('')}
     <button data-act="modal-open" data-modal="add-integ" data-cid="${esc(c.id)}" class="whitespace-nowrap text-xs font-medium px-3 py-1.5 rounded-full bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 ml-auto">+ Add Integration</button>
   </div>
@@ -147,6 +144,20 @@ function renderClientDetail(clientId) {
     </div>
   </div>
   <div class="h-20"></div>`: ''}
+</div>`;
+
+  // ── 3-COLUMN ASSEMBLY: full-width, not the app's usual centered .k-page
+  // (max-width:1280px would waste most of the screen on a page meant to use
+  // all available width). min-width:0 on the grid's second track is the
+  // actual fix for the horizontal scroll — CSS grid items default to
+  // min-width:auto, which refuses to shrink below its content's natural
+  // width; without this override, the inner 5-col list+detail grid could
+  // force the whole page wider than the viewport instead of wrapping/shrinking.
+  return `<div class="fade" style="padding:20px 28px 36px;">
+  <div class="grid gap-5" style="grid-template-columns:280px minmax(0,1fr);align-items:start;">
+    ${clientRail}
+    <div style="min-width:0;">${listAndDetail}</div>
+  </div>
 </div>`;
 }
 
