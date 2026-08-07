@@ -17,10 +17,13 @@ function exportFilename(clientName,reportType,ext){
   return`${sanitizeFilePart(clientName)}_${reportType}_${exportFileStamp()}.${ext}`;
 }
 
-function addLogoToDoc(doc, x, y, maxH){
-  // maxH in mm — logo is 315x94px, so w = maxH*(315/94)
+function addLogoToDoc(doc, x, topY, maxH){
+  // topY is the image's literal top-left Y — no anchor math. A previous
+  // 3/4-of-height "anchor" version caused two separate mispositioning bugs
+  // (thank-you-page overlap, and this header-bar vertical misalignment);
+  // this direct form removes that whole bug class rather than patching y-values.
   const w=maxH*(315/94);
-  try{doc.addImage(KOGNOZ_LOGO,'PNG',x,y-(maxH*0.75),w,maxH);}catch(e){}
+  try{doc.addImage(KOGNOZ_LOGO,'PNG',x,topY,w,maxH);}catch(e){}
 }
 async function exportPptx(clientId){
   if(typeof PptxGenJS==='undefined'){showToast('PPTX export library failed to load — check your connection and refresh','error');return;}
@@ -171,10 +174,10 @@ function integRagReason(c) {
     const parts = [];
     if (atRisk) parts.push(`${atRisk} At Risk`);
     if (overdue) parts.push(`${overdue} overdue`);
-    if (stale) parts.push(`${stale} stale ≥7d`);
+    if (stale) parts.push(`${stale} stale 7d+`);
     return { label, reason: parts.length ? `${parts.join(' · ')} of ${total} total` : 'See details below' };
   }
-  if (label === 'Amber') return { label, reason: `${stale} integration${stale === 1 ? '' : 's'} stale ≥7 days with no update` };
+  if (label === 'Amber') return { label, reason: `${stale} integration${stale === 1 ? '' : 's'} stale 7+ days with no update` };
   if (label === 'Green') return { label, reason: 'All integrations on track' };
   return { label: '—', reason: 'No integrations tracked yet' };
 }
@@ -236,12 +239,12 @@ function exportPdf(clientId) {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(125, 211, 232); doc.text('INTEGRATION STATUS REPORT', W / 2, 58, { align: 'center' });
     doc.setFont('helvetica', 'bold'); doc.setFontSize(34); doc.setTextColor(255, 255, 255); doc.text(c.name, W / 2, 80, { align: 'center' });
     doc.setFillColor(...MG); doc.rect(W / 2 - 12, 92, 24, 1, 'F');
-    addLogoToDoc(doc, W / 2 - 30, H - 20, 18); doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(125, 211, 232); doc.text('Prepared by Kognoz Consulting', W / 2, H - 9, { align: 'center' });
+    addLogoToDoc(doc, W / 2 - 30, H - 33.5, 18); doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(125, 211, 232); doc.text('Prepared by Kognoz Consulting', W / 2, H - 9, { align: 'center' });
     doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }), W / 2, H - 4, { align: 'center' });
 
     // ── PART 1 · EXECUTIVE SUMMARY (one page, safe to forward standalone) ──
     doc.addPage();
-    doc.setFillColor(...MG); doc.rect(0, 0, W, 14, 'F'); addLogoToDoc(doc, 10, 13, 10);
+    doc.setFillColor(...MG); doc.rect(0, 0, W, 14, 'F'); addLogoToDoc(doc, 10, 2, 10);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255); doc.text('PART 1 · Executive Summary', 58, 9.5);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(c.name, W - 10, 9.5, { align: 'right' });
 
@@ -299,7 +302,7 @@ function exportPdf(clientId) {
       });
 
     doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(156, 163, 175);
-    doc.text('This page is designed to stand alone — safe to forward to leadership without the appendix. Full detail → Part 2, next page.', 10, 203);
+    doc.text('This page is designed to stand alone — safe to forward to leadership without the appendix. Full detail on Part 2, next page.', 10, 203);
 
     // ── PART 2 · DIVIDER + MINI INDEX ────────────────────────────────
     doc.addPage(); doc.setFillColor(245, 249, 250); doc.rect(0, 0, W, H, 'F');
@@ -326,8 +329,14 @@ function exportPdf(clientId) {
     let ty = boxY + 7;
     renderGroups.forEach(g => {
       const rgb = SRGB[g.st] || [100, 116, 139];
-      doc.setFillColor(...rgb); doc.rect(boxX, ty - 3.6, 160, 5, 'F');
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255); doc.text(g.st, boxX + 4, ty);
+      // Light tint + colored text/accent, not solid-color fill + white text —
+      // white-on-color reads fine for dark statuses but goes near-invisible for
+      // light ones (Cancelled grey, Pending Client amber). Tinted bg + dark
+      // saturated text is readable regardless of how light the status color is.
+      const tint = rgb.map(v => Math.round(v + (255 - v) * 0.85));
+      doc.setFillColor(...tint); doc.rect(boxX, ty - 3.6, 160, 5, 'F');
+      doc.setFillColor(...rgb); doc.rect(boxX, ty - 3.6, 1.6, 5, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...rgb); doc.text(g.st, boxX + 5, ty);
       ty += 5;
       g.items.forEach(i => {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(7.8); doc.setTextColor(55, 65, 81);
@@ -340,16 +349,31 @@ function exportPdf(clientId) {
     // ── PART 2 · APPENDIX DETAIL — worst-first ─────────────────────
     doc.addPage();
     const sortedIntegs = sortIntegWorstFirst(c.integrations);
+    const UPD_LH = 3.3; // must match the line-height used in didDrawCell below —
+    // computeUpdatesHeight() and the actual draw share this constant so the
+    // row height autoTable reserves matches what gets drawn exactly, instead
+    // of guessing from a fake sizing string (that guess was the actual cause
+    // of the oversized gaps reported — reserved height didn't match drawn height).
+    function computeUpdatesHeight(meta, maxW) {
+      let h = 4;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); h += UPD_LH;
+      if (meta.updates.length) {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+        meta.updates.forEach(t => { h += UPD_LH; h += doc.splitTextToSize(t.update, maxW).length * UPD_LH + UPD_LH; });
+      } else { h += UPD_LH + UPD_LH; }
+      h += UPD_LH;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+      h += doc.splitTextToSize(meta.nextText || 'No next action noted.', maxW).length * UPD_LH;
+      return h + 4;
+    }
     const detailRows = sortedIntegs.map(i => {
       const updates = i.timeline || []; // already newest-first (unshift on add)
       const nextText = i.nextAction || '';
       const overdue = isOverdue(i);
       const dueCell = i.dueDate ? fmtDate(i.dueDate) : '—';
-      const updatesSizing = updates.length ? updates.map(t => `(${fmtDate(t.date)}) ${t.update}`).join('\n\n') : 'No updates yet.';
-      const sizingStr = `Updates (${updates.length}):\n${updatesSizing}\n\nNext:\n${nextText || 'No next action noted.'}`;
       return {
         status: i.status, overdue, updates, nextText,
-        row: ['', i.name, i.assignee || 'Unassigned', i.status, overdue ? `${dueCell}\n${daysOverdue(i)}d OVERDUE` : dueCell, sizingStr],
+        row: ['', i.name, i.assignee || 'Unassigned', i.status, overdue ? `${dueCell}\n${daysOverdue(i)}d OVERDUE` : dueCell, ''],
       };
     });
     doc.autoTable({
@@ -367,6 +391,13 @@ function exportPdf(clientId) {
         if (d.column.index === 0) { d.cell.styles.fillColor = SRGB[meta.status] || [100, 116, 139]; d.cell.text = ['']; }
         if (d.column.index === 3) { const rgb = SRGB[meta.status]; if (rgb) { d.cell.styles.textColor = rgb; d.cell.styles.fontStyle = 'bold'; } }
         if (d.column.index === 4 && meta.overdue) { d.cell.styles.textColor = [190, 24, 93]; d.cell.styles.fontStyle = 'bold'; }
+        if (d.column.index === 5) {
+          // Fully custom-painted in didDrawCell below — no default text, and
+          // the row height is forced to exactly what that custom draw needs
+          // (see computeUpdatesHeight), not autoTable's own guess.
+          d.cell.text = [''];
+          d.cell.styles.minCellHeight = computeUpdatesHeight(meta, d.cell.width - 6);
+        }
       },
       didDrawCell: d => {
         // Latest update stays dark/bold; older updates step back to grey — full
@@ -376,13 +407,16 @@ function exportPdf(clientId) {
         const meta = detailRows[d.row.index]; if (!meta) return;
         const bg = d.row.index % 2 ? [255, 255, 255] : [245, 249, 250];
         doc.setFillColor(...bg); doc.rect(d.cell.x, d.cell.y, d.cell.width, d.cell.height, 'F');
-        const x = d.cell.x + 3, maxW = d.cell.width - 6; let y = d.cell.y + 4; const lh = 3.3;
+        const x = d.cell.x + 3, maxW = d.cell.width - 6; let y = d.cell.y + 4; const lh = UPD_LH;
         doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(31, 41, 55);
         doc.text(`Updates (${meta.updates.length}):`, x, y); y += lh;
         if (meta.updates.length) {
           meta.updates.forEach((t, idx) => {
-            const dateCol = idx === 0 ? [31, 41, 55] : [156, 163, 175];
-            const bodyCol = idx === 0 ? [75, 85, 99] : [156, 163, 175];
+            // Older entries step back to gray-500 (107,114,128), not gray-400 —
+            // the lighter shade tested as "not visible" on a white/near-white
+            // cell background. Still visibly secondary to the bold dark latest.
+            const dateCol = idx === 0 ? [31, 41, 55] : [107, 114, 128];
+            const bodyCol = idx === 0 ? [75, 85, 99] : [107, 114, 128];
             doc.setFont('helvetica', 'bold'); doc.setTextColor(...dateCol);
             doc.text(`(${fmtDate(t.date)})`, x, y); y += lh;
             doc.setFont('helvetica', 'normal'); doc.setTextColor(...bodyCol);
@@ -390,7 +424,7 @@ function exportPdf(clientId) {
             doc.text(lines, x, y); y += lines.length * lh + lh;
           });
         } else {
-          doc.setFont('helvetica', 'italic'); doc.setTextColor(156, 163, 175);
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(107, 114, 128);
           doc.text('No updates yet.', x, y); y += lh + lh;
         }
         doc.setFont('helvetica', 'bold'); doc.setTextColor(31, 41, 55);
@@ -399,12 +433,12 @@ function exportPdf(clientId) {
           doc.setFont('helvetica', 'normal'); doc.setTextColor(75, 85, 99);
           doc.text(doc.splitTextToSize(meta.nextText, maxW), x, y);
         } else {
-          doc.setFont('helvetica', 'italic'); doc.setTextColor(156, 163, 175);
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(107, 114, 128);
           doc.text('No next action noted.', x, y);
         }
       },
       didDrawPage: () => {
-        doc.setFillColor(...NV); doc.rect(0, 0, W, 14, 'F'); addLogoToDoc(doc, 10, 13, 10);
+        doc.setFillColor(...NV); doc.rect(0, 0, W, 14, 'F'); addLogoToDoc(doc, 10, 2, 10);
         doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255); doc.text('Appendix — Integration Detail', 58, 9.5);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(c.name, W - 10, 9.5, { align: 'right' });
       },
@@ -414,7 +448,7 @@ function exportPdf(clientId) {
     doc.addPage(); doc.setFillColor(...NV); doc.rect(0, 0, W, H, 'F');
     doc.setFont('helvetica', 'bold'); doc.setFontSize(36); doc.setTextColor(255, 255, 255); doc.text('Thank You', W / 2, H / 2 - 8, { align: 'center' });
     doc.setFillColor(...MG); doc.rect(W / 2 - 10, H / 2, 20, 1, 'F');
-    addLogoToDoc(doc, W / 2 - 30, H / 2 + 30, 18);
+    addLogoToDoc(doc, W / 2 - 30, H / 2 + 16.5, 18);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(13); doc.setTextColor(125, 211, 232); doc.text('Kognoz · HR Transformation & Consulting', W / 2, H / 2 + 10, { align: 'center' });
     doc.save(exportFilename(c.name, 'Integration_Report', 'pdf')); showToast('PDF downloaded ✓');
   } catch (e) { console.error(e); showToast('PDF failed: ' + e.message, 'error'); }
@@ -435,7 +469,7 @@ function exportImplPdf(clientId){
     doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(125,211,232);doc.text('IMPLEMENTATION STATUS REPORT',W/2,58,{align:'center'});
     doc.setFont('helvetica','bold');doc.setFontSize(34);doc.setTextColor(255,255,255);doc.text(c.name,W/2,80,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-12,92,24,1,'F');
-    addLogoToDoc(doc,W/2-30,H-20,18);doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(125,211,232);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
+    addLogoToDoc(doc,W/2-30,H-33.5,18);doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(125,211,232);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
     doc.setFontSize(10);doc.setTextColor(100,116,139);doc.text(new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}),W/2,H-4,{align:'center'});
 
     // ── SUMMARY PAGE ───────────────────────────────────────────────
@@ -472,7 +506,7 @@ function exportImplPdf(clientId){
         const st=String(d.cell.raw).split('\n')[0];
         const rgb=SRGB[st];if(rgb){d.cell.styles.textColor=rgb;d.cell.styles.fontStyle='bold';}
       },
-      didDrawPage:()=>{doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('Implementation Summary',58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});}
+      didDrawPage:()=>{doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,2,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('Implementation Summary',58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});}
     });
 
     // ── DETAIL PAGES (one row per phase, grouped under module) ─────
@@ -552,7 +586,7 @@ function exportImplPdf(clientId){
       },
       didDrawPage:()=>{
         doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');
-        addLogoToDoc(doc,10,13,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('Phase Details & Updates',58,9.5);
+        addLogoToDoc(doc,10,2,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('Phase Details & Updates',58,9.5);
         doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});
       },
     });
@@ -561,7 +595,7 @@ function exportImplPdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+30,18);
+    addLogoToDoc(doc,W/2-30,H/2+16.5,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
 
     doc.save(exportFilename(c.name,'Implementation_Report','pdf'));showToast('PDF downloaded ✓');
@@ -588,12 +622,12 @@ function exportAmsActivityPdf(clientId){
     doc.setFont('helvetica','normal');doc.setFontSize(14);doc.setTextColor(125,211,232);doc.text(`Period: ${periodLabel}`,W/2,95,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-12,100,24,1,'F');
     doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(100,116,139);
-    addLogoToDoc(doc,W/2-30,H-20,18);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
+    addLogoToDoc(doc,W/2-30,H-33.5,18);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
     doc.text(new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}),W/2,H-4,{align:'center'});
 
     // ── SUMMARY PAGE ───────────────────────────────────────────────
     doc.addPage();
-    const drawHdr=()=>{doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('AMS Activity Log',58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});};
+    const drawHdr=()=>{doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,2,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('AMS Activity Log',58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});};
     drawHdr();
     // Stat boxes
     const openCount=sorted.filter(e=>(e.entryStatus||'Open')==='Open').length;
@@ -645,7 +679,7 @@ function exportAmsActivityPdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+30,18);
+    addLogoToDoc(doc,W/2-30,H/2+16.5,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
 
     doc.save(exportFilename(c.name,'AMS_Activity_Report','pdf'));showToast('Activity report downloaded ✓');
@@ -670,11 +704,11 @@ function exportAmsInvoicePdf(clientId){
     doc.setFont('helvetica','bold');doc.setFontSize(34);doc.setTextColor(255,255,255);doc.text(c.name,W/2,80,{align:'center'});
     doc.setFont('helvetica','normal');doc.setFontSize(14);doc.setTextColor(125,211,232);doc.text(`Period: ${periodLabel}`,W/2,95,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-12,100,24,1,'F');
-    addLogoToDoc(doc,W/2-30,H-20,18);doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(125,211,232);doc.text('Prepared by Kognoz Consulting — Internal Finance Use',W/2,H-9,{align:'center'});
+    addLogoToDoc(doc,W/2-30,H-33.5,18);doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(125,211,232);doc.text('Prepared by Kognoz Consulting — Internal Finance Use',W/2,H-9,{align:'center'});
     doc.setFontSize(10);doc.setTextColor(100,116,139);doc.text(new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}),W/2,H-4,{align:'center'});
     doc.addPage();
     const drawHeaderBar=()=>{
-      doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);
+      doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,2,10);
       doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('AMS Work Summary & Internal Billing Breakdown',58,9.5);
       doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});
     };
@@ -723,7 +757,7 @@ function exportAmsInvoicePdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+30,18);
+    addLogoToDoc(doc,W/2-30,H/2+16.5,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
     doc.save(exportFilename(c.name,'AMS_Billing','pdf'));showToast('Invoice downloaded ✓');
   }catch(e){console.error(e);showToast('PDF failed: '+e.message,'error');}
@@ -813,9 +847,9 @@ function exportConsolidatedPdf(clientIds, sections){
   doc.setFont('helvetica','normal');doc.setFontSize(12);doc.setTextColor(125,211,232);
   doc.text(`${clientIds.length} client${clientIds.length!==1?'s':''} · ${new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'})}`,W/2,H/2+2,{align:'center'});
   doc.setFillColor(...MG);doc.rect(W/2-14,H/2+10,28,1,'F');
-  addLogoToDoc(doc,W/2-30,H-20,18);doc.setFontSize(10);doc.setTextColor(100,116,139);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
+  addLogoToDoc(doc,W/2-30,H-33.5,18);doc.setFontSize(10);doc.setTextColor(100,116,139);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
 
-  const drawHdr=(title,clientName)=>{doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text(title,58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(clientName,W-10,9.5,{align:'right'});};
+  const drawHdr=(title,clientName)=>{doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,2,10);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text(title,58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(clientName,W-10,9.5,{align:'right'});};
 
   clientIds.forEach(cid=>{
     const c=S.clients.find(x=>x.id===cid);if(!c)return;
@@ -855,7 +889,7 @@ function exportConsolidatedPdf(clientIds, sections){
   doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
   doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-  addLogoToDoc(doc,W/2-30,H/2+30,18);
+  addLogoToDoc(doc,W/2-30,H/2+16.5,18);
   doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
   doc.save(exportFilename('Kora','Portfolio_Report','pdf'));showToast('Portfolio PDF downloaded ✓');
 }
