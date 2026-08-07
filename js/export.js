@@ -122,108 +122,302 @@ async function exportPptx(clientId){
   }catch(e){console.error(e);showToast('PPTX failed: '+e.message,'error');}
 }
 
+// ─── EXPORT: Integration Report — worst-first + Exec Summary helpers ──
+// Shared by exportPdf() below. Reuses core.js's isOverdue/isStale/integRagLabel
+// rather than re-deriving RAG logic — core.js's own comments flag that two
+// disagreeing health-score functions already exist elsewhere in this codebase;
+// a third one here would make that worse, so this only formats what core.js
+// already computes.
+const INTEG_FALLBACK_RANK = { 'On Hold — Client': 2, 'On Hold — Internal': 3, 'Pending Client': 4, 'Under Review': 5, 'Delayed': 6, 'In Progress': 8, 'Not Started': 9, 'Completed': 10, 'Cancelled': 11 };
+function integSeverityRank(i) {
+  if (i.status === 'At Risk') return isOverdue(i) ? 0 : 1;
+  if (i.status === 'In Progress' && isStale(i, 7)) return 7;
+  return INTEG_FALLBACK_RANK[i.status] ?? 8;
+}
+function sortIntegWorstFirst(list) {
+  return [...list].sort((a, b) => {
+    const r = integSeverityRank(a) - integSeverityRank(b); if (r) return r;
+    const ao = isOverdue(a), bo = isOverdue(b);
+    if (ao && bo) return daysOverdue(b) - daysOverdue(a);
+    if (ao !== bo) return ao ? -1 : 1;
+    return (a.dueDate || '9999').localeCompare(b.dueDate || '9999');
+  });
+}
+function integRiskReason(i) {
+  if (i.status === 'At Risk' && isOverdue(i)) return `${daysOverdue(i)}d overdue`;
+  if (i.status === 'At Risk' && isStale(i, 7)) { const lu = lastUpdateDate(i); const d = lu ? daysDiff(lu) : null; return d !== null ? `No update in ${d}d` : 'No updates logged'; }
+  if (i.status === 'At Risk') return 'Flagged At Risk';
+  if (i.status === 'On Hold — Client') return 'Waiting on client';
+  if (i.status === 'On Hold — Internal') return 'On hold internally';
+  if (i.status === 'Pending Client') return 'Waiting on client input';
+  if (i.status === 'Delayed') return 'Delayed';
+  if (i.status === 'Under Review') return 'Under review';
+  if (i.status === 'In Progress' && isStale(i, 7)) { const lu = lastUpdateDate(i); const d = lu ? daysDiff(lu) : null; return d !== null ? `No update in ${d}d` : 'Stale'; }
+  const daysUntil = i.dueDate ? -daysDiff(i.dueDate) : null;
+  return daysUntil !== null && daysUntil >= 0 ? `Due in ${daysUntil}d` : 'On track';
+}
+function integTopRisks(c, n = 3) {
+  const RISKY = ['At Risk', 'On Hold — Client', 'On Hold — Internal', 'Pending Client', 'Under Review', 'Delayed'];
+  const risky = c.integrations.filter(i => RISKY.includes(i.status) || (i.status === 'In Progress' && isStale(i, 7)));
+  return sortIntegWorstFirst(risky).slice(0, n);
+}
+function integRagReason(c) {
+  const label = integRagLabel(c);
+  const total = c.integrations.length;
+  const atRisk = c.integrations.filter(i => i.status === 'At Risk').length;
+  const overdue = c.integrations.filter(isOverdue).length;
+  const stale = c.integrations.filter(i => isStale(i, 7) && !isOverdue(i)).length;
+  if (label === 'Red') {
+    const parts = [];
+    if (atRisk) parts.push(`${atRisk} At Risk`);
+    if (overdue) parts.push(`${overdue} overdue`);
+    if (stale) parts.push(`${stale} stale ≥7d`);
+    return { label, reason: parts.length ? `${parts.join(' · ')} of ${total} total` : 'See details below' };
+  }
+  if (label === 'Amber') return { label, reason: `${stale} integration${stale === 1 ? '' : 's'} stale ≥7 days with no update` };
+  if (label === 'Green') return { label, reason: 'All integrations on track' };
+  return { label: '—', reason: 'No integrations tracked yet' };
+}
+function integMilestoneCounts(c) {
+  const all = (c.integrations || []).flatMap(i => i.milestones || []);
+  return { achieved: all.filter(m => m.status === 'Achieved').length, pending: all.filter(m => m.status === 'Pending').length, missed: all.filter(m => m.status === 'Missed').length, total: all.length };
+}
+// jsPDF has no native chart primitive — rasterize a donut via an offscreen
+// canvas (real browser Canvas 2D, we're client-side not Node) and addImage()
+// the PNG into the PDF. Caps at 5 slices + "Other" per chart-guidance max.
+function buildDonutDataUrl(segments, px = 240) {
+  const canvas = document.createElement('canvas'); canvas.width = px; canvas.height = px;
+  const ctx = canvas.getContext('2d');
+  const cx = px / 2, cy = px / 2, r = px * 0.36, lw = px * 0.22;
+  const total = segments.reduce((s, x) => s + x.count, 0) || 1;
+  let start = -Math.PI / 2;
+  segments.forEach(seg => {
+    const angle = (seg.count / total) * Math.PI * 2;
+    ctx.beginPath(); ctx.arc(cx, cy, r, start, start + angle); ctx.lineWidth = lw; ctx.strokeStyle = '#' + seg.hex; ctx.stroke();
+    start += angle;
+  });
+  ctx.font = `700 ${Math.round(px * 0.22)}px Arial`; ctx.fillStyle = '#1f2937'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(String(total), cx, cy - px * 0.03);
+  ctx.font = `600 ${Math.round(px * 0.08)}px Arial`; ctx.fillStyle = '#4b5563';
+  ctx.fillText('TOTAL', cx, cy + px * 0.14);
+  return canvas.toDataURL('image/png');
+}
+function integStatusSegments(c) {
+  const sg = {}; c.integrations.forEach(i => sg[i.status] = (sg[i.status] || 0) + 1);
+  let entries = Object.entries(sg).map(([status, count]) => ({ status, count, hex: SHEX[status] || '64748b' })).sort((a, b) => b.count - a.count);
+  if (entries.length > 6) {
+    const kept = entries.slice(0, 5);
+    const other = entries.slice(5).reduce((s, e) => s + e.count, 0);
+    entries = [...kept, { status: 'Other', count: other, hex: '94a3b8' }];
+  }
+  return entries;
+}
+// Draws the RAG-colored info banner used at the top of the Executive Summary.
+function drawRagBanner(doc, x, y, w, ragInfo) {
+  const RAG_STYLE = { Red: { bg: [253, 242, 248], line: [190, 24, 93] }, Amber: { bg: [255, 251, 235], line: [217, 119, 6] }, Green: { bg: [240, 253, 244], line: [34, 197, 94] }, '—': { bg: [245, 245, 245], line: [148, 163, 184] } };
+  const st = RAG_STYLE[ragInfo.label] || RAG_STYLE['—'];
+  doc.setDrawColor(...st.line); doc.setFillColor(...st.bg); doc.setLineWidth(0.4); doc.roundedRect(x, y, w, 18, 2, 2, 'FD');
+  doc.setFillColor(...st.line); doc.circle(x + 8, y + 9, 2.6, 'F');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...st.line); doc.text(`Portfolio Health: ${ragInfo.label.toUpperCase()}`, x + 16, y + 7.5);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(75, 85, 99); doc.text(ragInfo.reason, x + 16, y + 13.5);
+}
+
 // ─── EXPORT: PDF (Kognoz branded) ──────────────────────────────────
-function exportPdf(clientId){
-  if(typeof window.jspdf==='undefined'){showToast('PDF export library failed to load — check your connection and refresh','error');return;}
-  const c=S.clients.find(x=>x.id===clientId);if(!c)return;
-  showToast('Generating PDF…','info');
-  try{
-    const{jsPDF}=window.jspdf;const doc=new jsPDF({orientation:'landscape',format:'a4',unit:'mm'});
-    const W=297,H=210,NV=[14,116,144],MG=[37,99,235]; // app's live teal #0e7490 + blue #2563eb, not the old navy/magenta
-    // Cover
-    doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
-    doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(125,211,232);doc.text('INTEGRATION STATUS REPORT',W/2,58,{align:'center'});
-    doc.setFont('helvetica','bold');doc.setFontSize(34);doc.setTextColor(255,255,255);doc.text(c.name,W/2,80,{align:'center'});
-    doc.setFillColor(...MG);doc.rect(W/2-12,92,24,1,'F');
-    addLogoToDoc(doc,W/2-30,H-20,18);doc.setFont('helvetica','normal');doc.setFontSize(11);doc.setTextColor(125,211,232);doc.text('Prepared by Kognoz Consulting',W/2,H-9,{align:'center'});
-    doc.setFontSize(10);doc.setTextColor(100,116,139);doc.text(new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'long',year:'numeric'}),W/2,H-4,{align:'center'});
-    // Summary
-    doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);
-    doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(255,255,255);doc.text('Integration Summary',58,9.5);doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});
-    const sg={};c.integrations.forEach(i=>sg[i.status]=(sg[i.status]||0)+1);
-    [{l:'Total',v:c.integrations.length,rgb:NV},{l:'In Progress',v:sg['In Progress']||0,rgb:SRGB['In Progress']},{l:'At Risk',v:sg['At Risk']||0,rgb:SRGB['At Risk']},{l:'Completed',v:sg['Completed']||0,rgb:SRGB['Completed']},{l:'On Hold',v:(sg['On Hold — Internal']||0)+(sg['On Hold — Client']||0),rgb:SRGB['On Hold — Internal']}]
-    .forEach(({l,v,rgb},i)=>{const x=10+i*57;doc.setFillColor(...rgb);doc.roundedRect(x,18,50,20,2,2,'F');doc.setFont('helvetica','bold');doc.setFontSize(18);doc.setTextColor(255,255,255);doc.text(String(v),x+25,30,{align:'center'});doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.text(l,x+25,37,{align:'center'});});
-    doc.autoTable({startY:42,head:[['Integration','Status','Assignee','Due Date']],body:c.integrations.map(i=>[i.name,i.status,i.assignee||'—',i.dueDate?fmtDate(i.dueDate):'—']),headStyles:{fillColor:NV,textColor:[255,255,255],fontStyle:'bold',fontSize:9},styles:{fontSize:8.5,cellPadding:3},alternateRowStyles:{fillColor:[245,249,250]},columnStyles:{0:{cellWidth:127},1:{cellWidth:40},2:{cellWidth:60},3:{cellWidth:50}},didParseCell:d=>{if(d.column.index===1&&d.section==='body'){const rgb=SRGB[d.cell.raw];if(rgb){d.cell.styles.textColor=rgb;d.cell.styles.fontStyle='bold';}}},margin:{left:10,right:10}});
-    // Integration Details — single autoTable call, natively paginates across as many pages as needed
+function exportPdf(clientId) {
+  if (typeof window.jspdf === 'undefined') { showToast('PDF export library failed to load — check your connection and refresh', 'error'); return; }
+  const c = S.clients.find(x => x.id === clientId); if (!c) return;
+  showToast('Generating PDF…', 'info');
+  try {
+    const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation: 'landscape', format: 'a4', unit: 'mm' });
+    const W = 297, H = 210, NV = [14, 116, 144], MG = [37, 99, 235]; // app's live teal #0e7490 + blue #2563eb, not the old navy/magenta
+
+    // ── COVER ──────────────────────────────────────────────────────
+    doc.setFillColor(...NV); doc.rect(0, 0, W, H, 'F');
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(125, 211, 232); doc.text('INTEGRATION STATUS REPORT', W / 2, 58, { align: 'center' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(34); doc.setTextColor(255, 255, 255); doc.text(c.name, W / 2, 80, { align: 'center' });
+    doc.setFillColor(...MG); doc.rect(W / 2 - 12, 92, 24, 1, 'F');
+    addLogoToDoc(doc, W / 2 - 30, H - 20, 18); doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(125, 211, 232); doc.text('Prepared by Kognoz Consulting', W / 2, H - 9, { align: 'center' });
+    doc.setFontSize(10); doc.setTextColor(100, 116, 139); doc.text(new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }), W / 2, H - 4, { align: 'center' });
+
+    // ── PART 1 · EXECUTIVE SUMMARY (one page, safe to forward standalone) ──
     doc.addPage();
-    const detailRows=c.integrations.map(i=>{
-      const updates=i.timeline||[]; // already newest-first (unshift on add)
-      const nextText=i.nextAction||'';
-      const overdue=isOverdue(i);
-      const dueCell=i.dueDate?fmtDate(i.dueDate):'—';
-      // Sizing string: autoTable wraps this to compute row height. Line count here must
-      // match what didDrawCell below actually draws, so nothing gets cut off.
-      const updatesSizing=updates.length?updates.map(t=>`(${fmtDate(t.date)}) ${t.update}`).join('\n\n'):'No updates yet.';
-      const sizingStr=`Updates (${updates.length}):\n${updatesSizing}\n\nNext:\n${nextText||'No next action noted.'}`;
-      return{
-        status:i.status,overdue,updates,nextText,
-        row:['',i.name,i.assignee||'Unassigned',i.status,overdue?`${dueCell}\n${daysOverdue(i)}d OVERDUE`:dueCell,sizingStr],
+    doc.setFillColor(...MG); doc.rect(0, 0, W, 14, 'F'); addLogoToDoc(doc, 10, 13, 10);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255); doc.text('PART 1 · Executive Summary', 58, 9.5);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(c.name, W - 10, 9.5, { align: 'right' });
+
+    drawRagBanner(doc, 10, 20, 277, integRagReason(c));
+
+    // Left card — top risks + milestones
+    doc.setDrawColor(229, 231, 235); doc.setLineWidth(0.3); doc.roundedRect(10, 42, 160, 62, 2, 2, 'S');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...NV); doc.text('TOP ITEMS NEEDING ATTENTION', 14, 49);
+    const topRisks = integTopRisks(c, 3);
+    if (!topRisks.length) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(8.5); doc.setTextColor(107, 114, 128); doc.text('No items currently flagged — portfolio healthy.', 14, 58);
+    } else {
+      topRisks.forEach((i, idx) => {
+        const ry = 56 + idx * 8.5; const rgb = SRGB[i.status] || [100, 116, 139];
+        doc.setFillColor(...rgb); doc.circle(16, ry - 1.5, 1.3, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(31, 41, 55); doc.text(i.name, 20, ry);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(107, 114, 128); doc.text(integRiskReason(i), 20, ry + 3.7);
+      });
+    }
+    const ms = integMilestoneCounts(c);
+    if (ms.total > 0) {
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...NV); doc.text('MILESTONES', 14, 87);
+      [{ l: 'Achieved', v: ms.achieved, bg: [220, 252, 231], fg: [22, 101, 52] }, { l: 'Pending', v: ms.pending, bg: [254, 243, 199], fg: [146, 64, 14] }, { l: 'Missed', v: ms.missed, bg: [252, 231, 243], fg: [157, 23, 77] }]
+        .forEach((m, idx) => {
+          const mx = 14 + idx * 51;
+          doc.setFillColor(...m.bg); doc.roundedRect(mx, 90, 47, 11, 1.5, 1.5, 'F');
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(...m.fg); doc.text(String(m.v), mx + 5, 97);
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text(m.l, mx + 15, 97);
+        });
+    }
+
+    // Right card — status mix donut
+    doc.roundedRect(180, 42, 107, 62, 2, 2, 'S');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...NV); doc.text('STATUS MIX', 184, 49);
+    const segments = integStatusSegments(c);
+    try { doc.addImage(buildDonutDataUrl(segments), 'PNG', 184, 53, 32, 32); } catch (e) { }
+    const segTotal = segments.reduce((s, x) => s + x.count, 0) || 1;
+    let ly = 58;
+    segments.forEach(seg => {
+      doc.setFillColor(...(SRGB[seg.status] || [148, 163, 184])); doc.rect(220, ly - 2.2, 2.6, 2.6, 'F');
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(75, 85, 99); doc.text(seg.status, 224, ly);
+      doc.setFont('helvetica', 'bold'); doc.text(`${seg.count} · ${Math.round(seg.count / segTotal * 100)}%`, 284, ly, { align: 'right' });
+      ly += 7;
+    });
+
+    // Footer legend strip — status color key (static, app-wide meaning)
+    let lx = 10; const legY = 113;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(...NV); doc.text('Legend:', lx, legY); lx += doc.getTextWidth('Legend:') + 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
+    [['At Risk — action needed', SRGB['At Risk']], ['On Hold—Client — waiting on you', SRGB['On Hold — Client']], ['On Hold—Internal — waiting on Kognoz', SRGB['On Hold — Internal']], ['In Progress — on track', SRGB['In Progress']], ['Completed', SRGB['Completed']]]
+      .forEach(([label, rgb]) => {
+        doc.setFillColor(...rgb); doc.roundedRect(lx, legY - 2.6, 2.6, 2.6, 0.5, 0.5, 'F');
+        doc.setTextColor(75, 85, 99); doc.text(label, lx + 4, legY);
+        lx += 4 + doc.getTextWidth(label) + 7;
+      });
+
+    doc.setFont('helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(156, 163, 175);
+    doc.text('This page is designed to stand alone — safe to forward to leadership without the appendix. Full detail → Part 2, next page.', 10, 203);
+
+    // ── PART 2 · DIVIDER + MINI INDEX ────────────────────────────────
+    doc.addPage(); doc.setFillColor(245, 249, 250); doc.rect(0, 0, W, H, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...MG); doc.text('PART 2', W / 2, 50, { align: 'center' });
+    doc.setFontSize(24); doc.setTextColor(...NV); doc.text('Detailed Appendix', W / 2, 62, { align: 'center' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(75, 85, 99);
+    const introLines = doc.splitTextToSize('Integration-by-integration detail, full update history, and next actions for the working team. Sorted worst-first, same order as the Executive Summary\u2019s Top Items list.', 170);
+    doc.text(introLines, W / 2, 71, { align: 'center' });
+
+    const STATUS_ORDER = ['At Risk', 'On Hold — Client', 'On Hold — Internal', 'Pending Client', 'Under Review', 'Delayed', 'In Progress', 'Not Started', 'Completed', 'Cancelled'];
+    const groups = STATUS_ORDER.map(st => ({ st, items: sortIntegWorstFirst(c.integrations.filter(i => i.status === st)) })).filter(g => g.items.length);
+    const MAX_ROWS = 18; let rowsUsed = 0, truncatedCount = 0;
+    const renderGroups = [];
+    for (const g of groups) {
+      if (rowsUsed >= MAX_ROWS) { truncatedCount += g.items.length; continue; }
+      const take = g.items.slice(0, MAX_ROWS - rowsUsed);
+      renderGroups.push({ st: g.st, items: take });
+      rowsUsed += 1 + take.length;
+      if (take.length < g.items.length) truncatedCount += g.items.length - take.length;
+    }
+    const boxH = Math.min(100, 10 + renderGroups.reduce((s, g) => s + 5 + g.items.length * 4.3, 0) + (truncatedCount ? 5 : 0));
+    const boxX = (W - 160) / 2, boxY = 90;
+    doc.setDrawColor(229, 231, 235); doc.roundedRect(boxX, boxY, 160, boxH, 2, 2, 'S');
+    let ty = boxY + 7;
+    renderGroups.forEach(g => {
+      const rgb = SRGB[g.st] || [100, 116, 139];
+      doc.setFillColor(...rgb); doc.rect(boxX, ty - 3.6, 160, 5, 'F');
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(255, 255, 255); doc.text(g.st, boxX + 4, ty);
+      ty += 5;
+      g.items.forEach(i => {
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(7.8); doc.setTextColor(55, 65, 81);
+        doc.text(i.name.length > 62 ? i.name.slice(0, 60) + '…' : i.name, boxX + 4, ty);
+        ty += 4.3;
+      });
+    });
+    if (truncatedCount > 0) { doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(156, 163, 175); doc.text(`+${truncatedCount} more — see appendix`, boxX + 4, ty); }
+
+    // ── PART 2 · APPENDIX DETAIL — worst-first ─────────────────────
+    doc.addPage();
+    const sortedIntegs = sortIntegWorstFirst(c.integrations);
+    const detailRows = sortedIntegs.map(i => {
+      const updates = i.timeline || []; // already newest-first (unshift on add)
+      const nextText = i.nextAction || '';
+      const overdue = isOverdue(i);
+      const dueCell = i.dueDate ? fmtDate(i.dueDate) : '—';
+      const updatesSizing = updates.length ? updates.map(t => `(${fmtDate(t.date)}) ${t.update}`).join('\n\n') : 'No updates yet.';
+      const sizingStr = `Updates (${updates.length}):\n${updatesSizing}\n\nNext:\n${nextText || 'No next action noted.'}`;
+      return {
+        status: i.status, overdue, updates, nextText,
+        row: ['', i.name, i.assignee || 'Unassigned', i.status, overdue ? `${dueCell}\n${daysOverdue(i)}d OVERDUE` : dueCell, sizingStr],
       };
     });
     doc.autoTable({
-      startY:16,
-      margin:{top:16,left:10,right:10,bottom:10},
-      head:[['','Integration','Assignee','Status','Due Date','All Updates & Next Steps']],
-      body:detailRows.map(d=>d.row),
-      headStyles:{fillColor:NV,textColor:[255,255,255],fontStyle:'bold',fontSize:9},
-      styles:{fontSize:8,cellPadding:3,valign:'top'},
-      alternateRowStyles:{fillColor:[245,249,250]},
-      columnStyles:{0:{cellWidth:3},1:{cellWidth:50},2:{cellWidth:35},3:{cellWidth:28},4:{cellWidth:32},5:{cellWidth:'auto'}},
-      didParseCell:d=>{
-        if(d.section!=='body')return;
-        const meta=detailRows[d.row.index];if(!meta)return;
-        if(d.column.index===0){d.cell.styles.fillColor=SRGB[meta.status]||[100,116,139];d.cell.text=[''];}
-        if(d.column.index===3){const rgb=SRGB[meta.status];if(rgb){d.cell.styles.textColor=rgb;d.cell.styles.fontStyle='bold';}}
-        if(d.column.index===4&&meta.overdue){d.cell.styles.textColor=[190,24,93];d.cell.styles.fontStyle='bold';}
+      startY: 16,
+      margin: { top: 16, left: 10, right: 10, bottom: 10 },
+      head: [['', 'Integration', 'Assignee', 'Status', 'Due Date', 'All Updates & Next Steps']],
+      body: detailRows.map(d => d.row),
+      headStyles: { fillColor: NV, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 3, valign: 'top' },
+      alternateRowStyles: { fillColor: [245, 249, 250] },
+      columnStyles: { 0: { cellWidth: 3 }, 1: { cellWidth: 50 }, 2: { cellWidth: 35 }, 3: { cellWidth: 28 }, 4: { cellWidth: 32 }, 5: { cellWidth: 'auto' } },
+      didParseCell: d => {
+        if (d.section !== 'body') return;
+        const meta = detailRows[d.row.index]; if (!meta) return;
+        if (d.column.index === 0) { d.cell.styles.fillColor = SRGB[meta.status] || [100, 116, 139]; d.cell.text = ['']; }
+        if (d.column.index === 3) { const rgb = SRGB[meta.status]; if (rgb) { d.cell.styles.textColor = rgb; d.cell.styles.fontStyle = 'bold'; } }
+        if (d.column.index === 4 && meta.overdue) { d.cell.styles.textColor = [190, 24, 93]; d.cell.styles.fontStyle = 'bold'; }
       },
-      didDrawCell:d=>{
-        // Custom render for the Update/Next column: bold labels, bold date per entry,
-        // blank-line gap between entries. We let autoTable draw+size the cell normally
-        // (so pagination/height stays exact), then cover that plain text here and
-        // redraw it styled, using the same line count the sizing string produced.
-        if(d.section!=='body'||d.column.index!==5)return;
-        const meta=detailRows[d.row.index];if(!meta)return;
-        const bg=d.row.index%2?[255,255,255]:[245,249,250];
-        doc.setFillColor(...bg);doc.rect(d.cell.x,d.cell.y,d.cell.width,d.cell.height,'F');
-        const x=d.cell.x+3,maxW=d.cell.width-6;let y=d.cell.y+4;const lh=3.3;
-        doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(31,41,55);
-        doc.text(`Updates (${meta.updates.length}):`,x,y);y+=lh;
-        if(meta.updates.length){
-          meta.updates.forEach(t=>{
-            doc.setFont('helvetica','bold');doc.setTextColor(31,41,55);
-            doc.text(`(${fmtDate(t.date)})`,x,y);y+=lh;
-            doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-            const lines=doc.splitTextToSize(t.update,maxW);
-            doc.text(lines,x,y);y+=lines.length*lh+lh;
+      didDrawCell: d => {
+        // Latest update stays dark/bold; older updates step back to grey — full
+        // history is still printed (nothing deleted), just visually de-emphasized
+        // so the one update that matters right now isn't buried at equal weight.
+        if (d.section !== 'body' || d.column.index !== 5) return;
+        const meta = detailRows[d.row.index]; if (!meta) return;
+        const bg = d.row.index % 2 ? [255, 255, 255] : [245, 249, 250];
+        doc.setFillColor(...bg); doc.rect(d.cell.x, d.cell.y, d.cell.width, d.cell.height, 'F');
+        const x = d.cell.x + 3, maxW = d.cell.width - 6; let y = d.cell.y + 4; const lh = 3.3;
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.setTextColor(31, 41, 55);
+        doc.text(`Updates (${meta.updates.length}):`, x, y); y += lh;
+        if (meta.updates.length) {
+          meta.updates.forEach((t, idx) => {
+            const dateCol = idx === 0 ? [31, 41, 55] : [156, 163, 175];
+            const bodyCol = idx === 0 ? [75, 85, 99] : [156, 163, 175];
+            doc.setFont('helvetica', 'bold'); doc.setTextColor(...dateCol);
+            doc.text(`(${fmtDate(t.date)})`, x, y); y += lh;
+            doc.setFont('helvetica', 'normal'); doc.setTextColor(...bodyCol);
+            const lines = doc.splitTextToSize(t.update, maxW);
+            doc.text(lines, x, y); y += lines.length * lh + lh;
           });
-        }else{
-          doc.setFont('helvetica','italic');doc.setTextColor(156,163,175);
-          doc.text('No updates yet.',x,y);y+=lh+lh;
+        } else {
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(156, 163, 175);
+          doc.text('No updates yet.', x, y); y += lh + lh;
         }
-        doc.setFont('helvetica','bold');doc.setTextColor(31,41,55);
-        doc.text('Next:',x,y);y+=lh;
-        if(meta.nextText){
-          doc.setFont('helvetica','normal');doc.setTextColor(75,85,99);
-          doc.text(doc.splitTextToSize(meta.nextText,maxW),x,y);
-        }else{
-          doc.setFont('helvetica','italic');doc.setTextColor(156,163,175);
-          doc.text('No next action noted.',x,y);
+        doc.setFont('helvetica', 'bold'); doc.setTextColor(31, 41, 55);
+        doc.text('Next:', x, y); y += lh;
+        if (meta.nextText) {
+          doc.setFont('helvetica', 'normal'); doc.setTextColor(75, 85, 99);
+          doc.text(doc.splitTextToSize(meta.nextText, maxW), x, y);
+        } else {
+          doc.setFont('helvetica', 'italic'); doc.setTextColor(156, 163, 175);
+          doc.text('No next action noted.', x, y);
         }
       },
-      didDrawPage:()=>{
-        doc.setFillColor(...NV);doc.rect(0,0,W,14,'F');addLogoToDoc(doc,10,13,10);
-        doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(255,255,255);doc.text('Integration Details',58,9.5);
-        doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(c.name,W-10,9.5,{align:'right'});
+      didDrawPage: () => {
+        doc.setFillColor(...NV); doc.rect(0, 0, W, 14, 'F'); addLogoToDoc(doc, 10, 13, 10);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(255, 255, 255); doc.text('Appendix — Integration Detail', 58, 9.5);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(c.name, W - 10, 9.5, { align: 'right' });
       },
     });
-    // Thank you
-    doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
-    doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
-    doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+30,18);
-    doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
-    doc.save(exportFilename(c.name,'Integration_Report','pdf'));showToast('PDF downloaded ✓');
-  }catch(e){console.error(e);showToast('PDF failed: '+e.message,'error');}
+
+    // ── THANK YOU ──────────────────────────────────────────────────
+    doc.addPage(); doc.setFillColor(...NV); doc.rect(0, 0, W, H, 'F');
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(36); doc.setTextColor(255, 255, 255); doc.text('Thank You', W / 2, H / 2 - 8, { align: 'center' });
+    doc.setFillColor(...MG); doc.rect(W / 2 - 10, H / 2, 20, 1, 'F');
+    addLogoToDoc(doc, W / 2 - 30, H / 2 + 30, 18);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(13); doc.setTextColor(125, 211, 232); doc.text('Kognoz · HR Transformation & Consulting', W / 2, H / 2 + 10, { align: 'center' });
+    doc.save(exportFilename(c.name, 'Integration_Report', 'pdf')); showToast('PDF downloaded ✓');
+  } catch (e) { console.error(e); showToast('PDF failed: ' + e.message, 'error'); }
 }
 
 // ─── EXPORT: Implementation Module Progress (PDF) ──────────────────
