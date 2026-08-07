@@ -220,7 +220,7 @@ function exportPdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+22,18);
+    addLogoToDoc(doc,W/2-30,H/2+30,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
     doc.save(exportFilename(c.name,'Integration_Report','pdf'));showToast('PDF downloaded ✓');
   }catch(e){console.error(e);showToast('PDF failed: '+e.message,'error');}
@@ -367,7 +367,7 @@ function exportImplPdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+22,18);
+    addLogoToDoc(doc,W/2-30,H/2+30,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
 
     doc.save(exportFilename(c.name,'Implementation_Report','pdf'));showToast('PDF downloaded ✓');
@@ -451,7 +451,7 @@ function exportAmsActivityPdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+22,18);
+    addLogoToDoc(doc,W/2-30,H/2+30,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
 
     doc.save(exportFilename(c.name,'AMS_Activity_Report','pdf'));showToast('Activity report downloaded ✓');
@@ -529,7 +529,7 @@ function exportAmsInvoicePdf(clientId){
     doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
     doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
     doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-    addLogoToDoc(doc,W/2-30,H/2+22,18);
+    addLogoToDoc(doc,W/2-30,H/2+30,18);
     doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
     doc.save(exportFilename(c.name,'AMS_Billing','pdf'));showToast('Invoice downloaded ✓');
   }catch(e){console.error(e);showToast('PDF failed: '+e.message,'error');}
@@ -661,7 +661,7 @@ function exportConsolidatedPdf(clientIds, sections){
   doc.addPage();doc.setFillColor(...NV);doc.rect(0,0,W,H,'F');
   doc.setFont('helvetica','bold');doc.setFontSize(36);doc.setTextColor(255,255,255);doc.text('Thank You',W/2,H/2-8,{align:'center'});
   doc.setFillColor(...MG);doc.rect(W/2-10,H/2,20,1,'F');
-  addLogoToDoc(doc,W/2-30,H/2+22,18);
+  addLogoToDoc(doc,W/2-30,H/2+30,18);
   doc.setFont('helvetica','normal');doc.setFontSize(13);doc.setTextColor(125,211,232);doc.text('Kognoz · HR Transformation & Consulting',W/2,H/2+10,{align:'center'});
   doc.save(exportFilename('Kora','Portfolio_Report','pdf'));showToast('Portfolio PDF downloaded ✓');
 }
