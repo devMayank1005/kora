@@ -200,7 +200,7 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
           </div>
           <div class="flex gap-2 mt-2">
             <input id="ip-attach-label" type="text" placeholder="File label e.g. Signoff Mail (optional)" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
-            <label class="cursor-pointer flex items-center gap-1.5 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-3 py-2 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
+            <label title="PDF, Excel or image, max 3MB" class="cursor-pointer flex items-center gap-1.5 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-3 py-2 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
               📎 Attach File
               <input id="ip-attach-file" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp"/>
             </label>
@@ -212,11 +212,11 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
           <input id="ip-attach-url" type="hidden" value=""/>
           <input id="ip-attach-mimetype" type="hidden" value=""/>
           <input id="ip-attach-filename" type="hidden" value=""/>
-          <div class="flex items-center gap-3 mt-2 pl-1">
-            <span class="text-[11px] text-gray-400">PDF, Excel or image, max 3MB · posts immediately</span>
-            <div class="flex-1"></div>
-            <button data-act="add-impl-update" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" title="Post update" class="w-8 h-8 rounded-full bg-[#0e7490] hover:bg-[#0d3d4f] flex items-center justify-center transition shrink-0">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>
+          <div class="flex items-center justify-between gap-2 mt-2.5 pl-1">
+            <span class="text-[11px] text-amber-600 font-semibold">⚠ Not saved until you click Post →</span>
+            <button data-act="add-impl-update" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" class="flex items-center gap-1.5 bg-[#0e7490] hover:bg-[#0d3d4f] text-white text-xs font-semibold pl-4 pr-3 py-2 rounded-full transition shrink-0">
+              Post Update
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></svg>
             </button>
           </div>
         </div>
