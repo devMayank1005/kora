@@ -364,7 +364,10 @@ function exportPdf(clientId) {
       h += UPD_LH;
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
       h += doc.splitTextToSize(meta.nextText || 'No next action noted.', maxW).length * UPD_LH;
-      return h + 4;
+      // Safety clamp: caps one bad row at ~1 extra page instead of runaway blank
+      // pages if width/measurement is ever off again (that's exactly what just
+      // happened with the 'auto' column — this is the belt-and-suspenders fix).
+      return Math.min(h + 4, 180);
     }
     const detailRows = sortedIntegs.map(i => {
       const updates = i.timeline || []; // already newest-first (unshift on add)
@@ -384,7 +387,7 @@ function exportPdf(clientId) {
       headStyles: { fillColor: NV, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
       styles: { fontSize: 8, cellPadding: 3, valign: 'top' },
       alternateRowStyles: { fillColor: [245, 249, 250] },
-      columnStyles: { 0: { cellWidth: 3 }, 1: { cellWidth: 50 }, 2: { cellWidth: 35 }, 3: { cellWidth: 28 }, 4: { cellWidth: 32 }, 5: { cellWidth: 'auto' } },
+      columnStyles: { 0: { cellWidth: 3 }, 1: { cellWidth: 50 }, 2: { cellWidth: 35 }, 3: { cellWidth: 28 }, 4: { cellWidth: 32 }, 5: { cellWidth: 129 } }, // fixed, not 'auto' — see note below
       didParseCell: d => {
         if (d.section !== 'body') return;
         const meta = detailRows[d.row.index]; if (!meta) return;
