@@ -160,29 +160,29 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
       <h3 class="font-semibold text-gray-900 mb-4 text-sm">Details</h3>
       <div class="space-y-4">
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Status</label>
-          ${can('edit') ? `<select id="ip-status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s => `<option${s === ph.status ? ' selected' : ''}>${s}</option>`).join('')}</select>` : sbadge(ph.status)}
+          ${can('editor') ? `<select id="ip-status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s => `<option${s === ph.status ? ' selected' : ''}>${s}</option>`).join('')}</select>` : sbadge(ph.status)}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Assignee</label>
-          ${can('edit') ? assigneeSelect('ip-assignee', ph.assignee || '') :
+          ${can('editor') ? assigneeSelect('ip-assignee', ph.assignee || '') :
       `<p class="text-sm text-gray-700">${esc(ph.assignee || '—')}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Start Date</label>
-          ${can('edit') ? `<input id="ip-start" type="date" value="${esc(ph.startDate || '')}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>` :
+          ${can('editor') ? `<input id="ip-start" type="date" value="${esc(ph.startDate || '')}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>` :
       `<p class="text-sm text-gray-700">${fmtDate(ph.startDate)}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Target Date</label>
-          ${can('edit') ? `<input id="ip-target" type="date" value="${esc(ph.targetDate || '')}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>` :
+          ${can('editor') ? `<input id="ip-target" type="date" value="${esc(ph.targetDate || '')}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>` :
       `<p class="text-sm text-gray-700">${fmtDate(ph.targetDate)}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Current Activity</label>
-          ${can('edit') ? `<textarea id="ip-activity" rows="3" placeholder="What is currently happening in this phase?" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(ph.currentActivity || '')}</textarea>` :
+          ${can('editor') ? `<textarea id="ip-activity" rows="3" placeholder="What is currently happening in this phase?" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(ph.currentActivity || '')}</textarea>` :
       `<p class="text-sm text-gray-700 leading-relaxed">${esc(ph.currentActivity || '—')}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Next Action</label>
-          ${can('edit') ? `<textarea id="ip-next" rows="2" placeholder="What is the next planned step?" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(ph.nextAction || '')}</textarea>` :
+          ${can('editor') ? `<textarea id="ip-next" rows="2" placeholder="What is the next planned step?" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(ph.nextAction || '')}</textarea>` :
       `<p class="text-sm text-gray-700">${esc(ph.nextAction || '—')}</p>`}
         </div>
-        ${can('edit') ? `<button data-act="save-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition flex items-center justify-center gap-2">Save Details <kbd class="text-[10px] font-normal opacity-60 border border-white/30 rounded px-1.5 py-0.5">${kbdHint('S')}</kbd></button>` : ''}
+        ${can('editor') ? `<button data-act="save-impl-phase" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition flex items-center justify-center gap-2">Save Details <kbd class="text-[10px] font-normal opacity-60 border border-white/30 rounded px-1.5 py-0.5">${kbdHint('S')}</kbd></button>` : ''}
       </div>
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 p-6">
@@ -192,7 +192,7 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
           Activity <span class="text-gray-400 font-normal">(${ph.updates.length})</span>
         </h3>
       </div>
-      ${can('edit') ? `<div class="flex gap-2.5 mb-4">
+      ${can('editor') ? `<div class="flex gap-2.5 mb-4">
         ${avatarChip(S.user?.name)}
         <div class="flex-1 min-w-0">
           <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5">
@@ -270,7 +270,7 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
             <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5 mt-1 text-sm text-gray-700 leading-relaxed">${esc(t.update)}</div>
             ${t.attachment?.url ? attachmentChip(t.attachment) : ''}
             <div class="flex items-center gap-3 mt-1.5 pl-1">
-              ${can('edit') ? `<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>` : ''}
+              ${can('editor') ? `<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>` : ''}
               ${can('admin') ? `<button data-act="delete-impl-update" data-cid="${esc(c.id)}" data-mid="${esc(mod.id)}" data-phase="${esc(phaseName)}" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>` : ''}
               <button data-act="copy-update" data-text="${esc(t.update)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Copy</button>
             </div>

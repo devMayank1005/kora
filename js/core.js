@@ -1,7 +1,7 @@
 const KOGNOZ_LOGO = "/kognoz_Iogo.png";
 let _bgRefreshTimer = null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
-const S = { user: null, clients: [], archivedClients: [], users: [], usersForDropdown: [], shas: { clients: null, users: null }, sessionToken: null, view: 'login', params: {}, adminTab: 'integrations', filter: 'all', search: '', modal: null, toast: null, sidebarCollapsed: false, sidebarClientsOpen: false, sort: { key: 'name', dir: 'asc' }, editingTimelineId: null, expandedHistory: new Set(), amsFrom: '', amsTo: '', amsQuick: '', editingAmsEntryId: null, expandedAmsHistory: new Set(), selectedAmsEntryId: null, selectedIntegId: null, openExportMenu: null, cmdPaletteOpen: false, cmdQuery: '', cmdSelectedIdx: 0, recentlyViewed: [], darkMode: false, shortcutsHelpOpen: false, bulkImplMode: false, bulkImplCid: null, bulkSelected: new Set(), offlineMode: false, bulkIntegMode: false, bulkIntegCid: null, bulkIntegSelected: new Set(), dashAttnSort: { key: 'reason', dir: 'desc' }, dashClientSort: { key: 'name', dir: 'asc' }, dashAssigneeSort: { key: 'total', dir: 'desc' }, dashAssigneeSearch: '', dashAssigneeExpanded: new Set(), dashCapacityExpanded: new Set(), dashAssigneeFilter: 'all', dashCritSearch: '', dashCritFilter: 'all', adminSearch: '', auditRows: [], auditTotal: 0, auditPage: 0, auditPageSize: 50, auditFrom: '', auditTo: '', auditUser: '', auditSearch: '', auditLoading: false, auditLoaded: false, snapshotHistory: [], snapshotChecked: false, snapshotHistoryFetched: false, capacityWeights: { module: 1, pmo: 0.5, ams: 0.25, cap: 5 }, capacityWeightsFetched: false, pendingPath: null, authMessage: null, integRailFilter: '', integRailSort: 'name', integMineOnly: false, lastActiveMap: {}, lastActiveFetched: false, viewAsRole: null, bulkUserMode: false, bulkUserSelected: new Set() };
+const S = { user: null, clients: [], archivedClients: [], users: [], usersForDropdown: [], shas: { clients: null, users: null }, sessionToken: null, view: 'login', params: {}, adminTab: 'integrations', filter: 'all', search: '', modal: null, toast: null, sidebarCollapsed: false, sidebarClientsOpen: false, sort: { key: 'name', dir: 'asc' }, editingTimelineId: null, expandedHistory: new Set(), amsFrom: '', amsTo: '', amsQuick: '', editingAmsEntryId: null, expandedAmsHistory: new Set(), selectedAmsEntryId: null, selectedIntegId: null, openExportMenu: null, cmdPaletteOpen: false, cmdQuery: '', cmdSelectedIdx: 0, recentlyViewed: [], darkMode: false, shortcutsHelpOpen: false, bulkImplMode: false, bulkImplCid: null, bulkSelected: new Set(), offlineMode: false, bulkIntegMode: false, bulkIntegCid: null, bulkIntegSelected: new Set(), dashAttnSort: { key: 'reason', dir: 'desc' }, dashClientSort: { key: 'name', dir: 'asc' }, dashAssigneeSort: { key: 'total', dir: 'desc' }, dashAssigneeSearch: '', dashAssigneeExpanded: new Set(), dashCapacityExpanded: new Set(), dashAssigneeFilter: 'all', dashCritSearch: '', dashCritFilter: 'all', adminSearch: '', auditRows: [], auditTotal: 0, auditPage: 0, auditPageSize: 50, auditFrom: '', auditTo: '', auditUser: '', auditSearch: '', auditLoading: false, auditLoaded: false, snapshotHistory: [], snapshotChecked: false, snapshotHistoryFetched: false, capacityWeights: { module: 1, pmo: 0.5, ams: 0.25, cap: 5 }, capacityWeightsFetched: false, pendingPath: null, authMessage: null, integRailFilter: '', integRailSort: 'name', integMineOnly: false, lastActiveMap: {}, lastActiveFetched: false, viewAsRole: null, bulkUserMode: false, bulkUserSelected: new Set(), pomodoro: null, pomodoroModePref: 'simple' };
 
 try { S.sidebarCollapsed = localStorage.getItem('itk_sb_collapsed') === '1'; } catch (e) { }
 try { const r = localStorage.getItem('itk_recent'); if (r) S.recentlyViewed = JSON.parse(r); } catch (e) { }
@@ -671,4 +671,79 @@ async function saveUsers(msg, changedIds) {
     }
     throw err;
   }
+}
+// ─── Pomodoro Focus Timer ────────────────────────────────────────
+// Entirely client-side, in-memory only (S.pomodoro) — nothing is ever
+// saved to Supabase/localStorage, matches the explicit "no persistence"
+// decision. Only one timer can be active at a time (starting a new one
+// silently replaces any other running session — a deliberate simplification,
+// not a bug). The per-second tick deliberately does NOT call render() (see
+// pomodoroTickDom) — render() replaces the entire page DOM, which would be
+// disruptive if called every second, and actively wrong if the user has
+// since navigated to a different page. render() is only called at real
+// state transitions (start / phase change / complete), same as every other
+// user action in the app.
+const POMODORO_DURATIONS = { work: 25 * 60, break: 5 * 60 };
+const POMODORO_SIMPLE_OPTIONS = [15, 25, 45, 60];
+
+function pomodoroMmss(totalSec) {
+  const m = Math.floor(totalSec / 60), s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function pomodoroStop() {
+  if (S.pomodoro?.intervalId) clearInterval(S.pomodoro.intervalId);
+  S.pomodoro = null;
+}
+
+function pomodoroStart(cid, iid, mode, simpleMinutes) {
+  pomodoroStop();
+  const total = mode === 'pomodoro' ? POMODORO_DURATIONS.work : (simpleMinutes || 25) * 60;
+  S.pomodoro = { cid, iid, mode, cyclePhase: 'work', phase: 'running', total, remaining: total, cycle: 0, intervalId: null };
+  S.pomodoro.intervalId = setInterval(pomodoroTick, 1000);
+  render();
+}
+
+// Only re-renders if the person is still looking at the integration the
+// timer belongs to — if they've navigated elsewhere, updating state quietly
+// and re-rendering next time they actually visit that page avoids yanking
+// away whatever they're doing on the page they're currently on.
+function pomodoroMaybeRender() {
+  if (S.view === 'integ-detail' && S.pomodoro && S.params?.clientId === S.pomodoro.cid && S.params?.integId === S.pomodoro.iid) render();
+}
+
+function pomodoroTick() {
+  if (!S.pomodoro) return;
+  S.pomodoro.remaining--;
+  if (S.pomodoro.remaining <= 0) {
+    if (S.pomodoro.mode === 'pomodoro' && S.pomodoro.cyclePhase === 'work' && S.pomodoro.cycle < 3) {
+      S.pomodoro.cyclePhase = 'break';
+      S.pomodoro.total = S.pomodoro.remaining = POMODORO_DURATIONS.break;
+      pomodoroMaybeRender();
+    } else if (S.pomodoro.mode === 'pomodoro' && S.pomodoro.cyclePhase === 'break') {
+      S.pomodoro.cycle++;
+      S.pomodoro.cyclePhase = 'work';
+      S.pomodoro.total = S.pomodoro.remaining = POMODORO_DURATIONS.work;
+      pomodoroMaybeRender();
+    } else {
+      clearInterval(S.pomodoro.intervalId);
+      S.pomodoro.intervalId = null;
+      S.pomodoro.phase = 'complete';
+      pomodoroMaybeRender();
+    }
+    return;
+  }
+  pomodoroTickDom();
+}
+
+// Targeted update — finds the two live elements and edits them directly,
+// no innerHTML replacement of anything. No-ops harmlessly if the person has
+// navigated away (elements simply won't be in the DOM).
+function pomodoroTickDom() {
+  if (!S.pomodoro) return;
+  const digitsEl = document.getElementById('pomodoro-digits');
+  if (!digitsEl) return;
+  digitsEl.textContent = pomodoroMmss(S.pomodoro.remaining);
+  const barEl = document.getElementById('pomodoro-bar-fill');
+  if (barEl) barEl.style.width = ((1 - S.pomodoro.remaining / S.pomodoro.total) * 100).toFixed(1) + '%';
 }

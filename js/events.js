@@ -94,7 +94,7 @@ document.addEventListener('click', async e => {
   if (act === 'exp-impl-pdf') { setBtnBusy(el, 'Generating…'); try { exportImplPdf(el.dataset.cid); } finally { clearBtnBusy(el); } return; }
   if (act === 'exp-ams-invoice') { if (!can('admin')) return; setBtnBusy(el, 'Generating…'); try { exportAmsInvoicePdf(el.dataset.cid); } finally { clearBtnBusy(el); } return; }
   if (act === 'copy-update') { try { await navigator.clipboard.writeText(el.dataset.text); showToast('Copied ✓'); } catch (e) { showToast('Copy failed', 'error'); } return; }
-  if (act === 'edit-timeline') { if (!can('edit')) return; S.editingTimelineId = el.dataset.tid; render(); setTimeout(() => { const ta = document.getElementById(`edit-tl-${el.dataset.tid}`); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 50); return; }
+  if (act === 'edit-timeline') { if (!can('editor')) return; S.editingTimelineId = el.dataset.tid; render(); setTimeout(() => { const ta = document.getElementById(`edit-tl-${el.dataset.tid}`); if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } }, 50); return; }
   if (act === 'cancel-edit-timeline') { S.editingTimelineId = null; render(); return; }
   if (act === 'toggle-history') { const tid = el.dataset.tid; if (S.expandedHistory.has(tid)) S.expandedHistory.delete(tid); else S.expandedHistory.add(tid); render(); return; }
   if (act === 'modal-open') {
@@ -117,7 +117,7 @@ document.addEventListener('click', async e => {
   if (act === 'modal-close') { if (S.modal?.busy) return; S.modal = null; render(); return; }
 
   if (act === 'mark-complete') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, iid = el.dataset.iid;
     const c = S.clients.find(x => x.id === cid); const i = c?.integrations.find(x => x.id === iid); if (!i) return;
     const prevStatus = i.status; i.status = 'Completed';
@@ -129,7 +129,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'save-integ') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, iid = el.dataset.iid;
     const c = S.clients.find(x => x.id === cid); const i = c?.integrations.find(x => x.id === iid); if (!i) return;
     const prev = { ...i };
@@ -144,7 +144,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'add-timeline') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, iid = el.dataset.iid;
     const text = document.getElementById('tl-input')?.value.trim();
     if (!text) { showToast('Enter an update', 'error'); return; }
@@ -156,7 +156,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'save-edit-timeline') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, iid = el.dataset.iid, tid = el.dataset.tid;
     const c = S.clients.find(x => x.id === cid); const i = c?.integrations.find(x => x.id === iid); if (!i) return;
     const idx = i.timeline.findIndex(x => x.id === tid); if (idx < 0) return;
@@ -173,7 +173,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'save-impl-phase') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, mid = el.dataset.mid, phaseName = el.dataset.phase;
     const c = S.clients.find(x => x.id === cid); const mod = (c?.modules || []).find(x => x.id === mid); if (!mod) return;
     const idx = mod.phases.findIndex(x => x.name === phaseName);
@@ -202,7 +202,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'add-impl-update') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, mid = el.dataset.mid, phaseName = el.dataset.phase;
     const text = document.getElementById('ip-update-input')?.value.trim();
     if (!text) { showToast('Enter an update', 'error'); return; }
@@ -221,7 +221,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'save-edit-impl-update') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const cid = el.dataset.cid, mid = el.dataset.mid, phaseName = el.dataset.phase, tid = el.dataset.tid;
     const c = S.clients.find(x => x.id === cid); const mod = (c?.modules || []).find(x => x.id === mid); if (!mod) return;
     const ph = mod.phases.find(x => x.name === phaseName); if (!ph || !ph.updates) return;
@@ -254,11 +254,11 @@ document.addEventListener('click', async e => {
   if (act === 'select-integ') { S.selectedIntegId = el.dataset.iid; render(); return; }
   // ── Milestone handlers ──
   if (act === 'add-milestone-btn') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     S.modal = { type: 'add-milestone', cid: el.dataset.cid, iid: el.dataset.iid }; render(); setTimeout(() => document.getElementById('ms-name')?.focus(), 50); return;
   }
   if (act === 'edit-milestone-btn') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const c = S.clients.find(x => x.id === el.dataset.cid); const i = c?.integrations.find(x => x.id === el.dataset.iid); const ms = (i?.milestones || []).find(x => x.id === el.dataset.mid); if (!ms) return;
     S.modal = { type: 'edit-milestone', cid: el.dataset.cid, iid: el.dataset.iid, mid: ms.id, msName: ms.name, msDue: ms.dueDate || '', msStatus: ms.status, msOwner: ms.owner || '', msNotes: ms.notes || '' }; render(); setTimeout(() => document.getElementById('ms-name')?.focus(), 50); return;
   }
@@ -270,6 +270,32 @@ document.addEventListener('click', async e => {
   // ── Integrations: "Mine" quick filter, copy-link, reactions, bulk reassign/status ──
   if (act === 'toggle-integ-mine') { S.integMineOnly = !S.integMineOnly; render(); return; }
   if (act === 'copy-link') { try { await navigator.clipboard.writeText(el.dataset.url); showToast('Link copied ✓'); } catch (e) { showToast('Copy failed', 'error'); } return; }
+
+  // ─── Pomodoro Focus Timer ───────────────────────────────────────
+  if (act === 'pomodoro-mode') { S.pomodoroModePref = el.dataset.mode; render(); return; }
+  if (act === 'pomodoro-start') {
+    const mode = S.pomodoroModePref === 'pomodoro' ? 'pomodoro' : 'simple';
+    const durSel = document.getElementById('pomodoro-dur');
+    const mins = durSel ? parseInt(durSel.value, 10) : 25;
+    pomodoroStart(el.dataset.cid, el.dataset.iid, mode, mins);
+    return;
+  }
+  if (act === 'pomodoro-reset') { pomodoroStop(); render(); return; }
+  if (act === 'pomodoro-skip-later') { pomodoroStop(); render(); return; }
+  if (act === 'pomodoro-choice-post' || act === 'pomodoro-choice-details') {
+    const targetId = act === 'pomodoro-choice-post' ? 'tl-input' : 'f-next';
+    pomodoroStop();
+    render();
+    setTimeout(() => {
+      const field = document.getElementById(targetId);
+      if (!field) return;
+      field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      field.focus();
+      const card = field.closest('.bg-white');
+      if (card) { card.classList.add('pomodoro-highlight'); setTimeout(() => card.classList.remove('pomodoro-highlight'), 3300); }
+    }, 50);
+    return;
+  }
   if (act === 'toggle-reaction') {
     const c = S.clients.find(x => x.id === el.dataset.cid); const i = c?.integrations.find(x => x.id === el.dataset.iid); if (!i) return;
     const t = (i.timeline || []).find(x => x.id === el.dataset.tid); if (!t) return;
@@ -479,7 +505,7 @@ document.addEventListener('click', async e => {
     S.modal = { type: 'confirm', msg: `Delete this entry (${fmtDate(entryDate(e))})? This cannot be undone.`, _act: 'delete-ams-entry', _cid: c.id, _eid: e.id }; render(); return;
   }
   if (act === 'edit-ams-entry') {
-    if (!can('edit')) return;
+    if (!can('editor')) return;
     const c = S.clients.find(x => x.id === el.dataset.cid); const e = c?.workLog?.find(x => x.id === el.dataset.eid); if (!e) return;
     S.modal = {
       type: 'edit-ams-entry', cid: el.dataset.cid, eid: el.dataset.eid,
@@ -985,7 +1011,7 @@ document.addEventListener('click', async e => {
       try { await saveClients(`Edit AMS client: ${c.name}`, [c.id]); S.modal = null; showToast('Saved ✓'); navigate('ams-client-detail', { clientId: c.id }); }
       catch (err) { Object.assign(c, snapshot); if (snapshot.totalAvailableHours === undefined) delete c.totalAvailableHours; if (snapshot.manDayRate === undefined) delete c.manDayRate; S.modal = null; showToast('Failed: ' + err.message, 'error'); render(); }
     } else if (m.type === 'add-ams-entry' || m.type === 'edit-ams-entry') {
-      if (!can('edit')) return;
+      if (!can('editor')) return;
       const cid = m.cid; const c = S.clients.find(x => x.id === cid); if (!c) return;
       const dateRaised = document.getElementById('ae-date')?.value;
       const hours = parseFloat(document.getElementById('ae-hours')?.value);

@@ -113,7 +113,7 @@ function renderAmsClientDetail(clientId) {
       <button data-act="delete-ams-client" data-id="${esc(c.id)}" class="text-rose-400 hover:text-rose-600 text-xs px-2">Delete Client</button>
     </div>`: ''}
   </div>
-  ${can('edit') ? `<div class="mb-5"><button data-act="modal-open" data-modal="add-ams-entry" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">+ Add Entry</button></div>` : ''}
+  ${can('editor') ? `<div class="mb-5"><button data-act="modal-open" data-modal="add-ams-entry" data-cid="${esc(c.id)}" class="btn-grad text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition">+ Add Entry</button></div>` : ''}
   ${can('admin') && t.hasRate ? `<div class="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
     <h3 class="font-semibold text-gray-900 text-sm mb-3">Billing</h3>
     ${t.hasBucket ? `<div class="grid grid-cols-3 gap-4 mb-4">
@@ -184,7 +184,7 @@ function renderAmsClientDetail(clientId) {
           ${amsStatusBadge(sel.entryStatus || 'Open')}
           ${sel.ragStatus ? ragBadge(sel.ragStatus) : ''}
         </div>
-        ${can('edit') ? `<div class="flex gap-2 shrink-0">
+        ${can('editor') ? `<div class="flex gap-2 shrink-0">
           <button data-act="edit-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Edit</button>
           ${can('admin') ? `<button data-act="delete-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-rose-500 border border-rose-200 rounded-lg px-3 py-1.5 hover:bg-rose-50 transition">Delete</button>` : ''}
         </div>`: ''}

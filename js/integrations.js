@@ -197,6 +197,64 @@ function renderClientDetail(clientId) {
 }
 
 // ─── INTEG DETAIL ─────────────────────────────────────────────────
+// Renders the Pomodoro Focus Timer widget for the Integration Detail page.
+// Editor+ only (viewers can't post updates or edit details, so a "start
+// focused work" tool has nothing for them to do at the end of it).
+// Idle/running/complete markup all live here; the live per-second countdown
+// itself is a targeted DOM update (pomodoroTickDom in core.js), not a
+// re-render of this function.
+function renderPomodoroWidget(c, i) {
+  if (!can('editor')) return '';
+  const p = S.pomodoro;
+  const isThisTimer = p && p.cid === c.id && p.iid === i.id;
+
+  if (isThisTimer && p.phase === 'complete') {
+    return `<div class="pomodoro-card mb-5"><div class="pomodoro-complete">
+      <div class="p-cheer">🎉 Nice work — session done!</div>
+      <div class="p-sub">Want to log what happened on <b>${esc(i.name)}</b>?</div>
+      <div class="pomodoro-choice-row">
+        <button data-act="pomodoro-choice-post" class="pomodoro-choice-btn pomodoro-choice-primary"><div class="cbt">📝 Post an Update</div><div class="cbs">Quick note in the Activity feed →</div></button>
+        <button data-act="pomodoro-choice-details" class="pomodoro-choice-btn pomodoro-choice-secondary"><div class="cbt">✏️ Fill in Details</div><div class="cbs">Update status, dates, next action ←</div></button>
+      </div>
+      <button data-act="pomodoro-skip-later" class="pomodoro-skip-later">Maybe later</button>
+    </div></div>`;
+  }
+
+  if (isThisTimer && p.phase === 'running') {
+    return `<div class="pomodoro-card mb-5"><div class="pomodoro-inner">
+      <div>
+        <div id="pomodoro-digits" class="pomodoro-digits">${pomodoroMmss(p.remaining)}</div>
+        <div class="pomodoro-bar"><div id="pomodoro-bar-fill" style="width:${((1 - p.remaining / p.total) * 100).toFixed(1)}%"></div></div>
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div class="pomodoro-label">${p.cyclePhase === 'break' ? 'On a break from' : 'Focused on'}</div>
+        <div class="pomodoro-task">${esc(i.name)}</div>
+        <button data-act="pomodoro-reset" class="pomodoro-btn-ghost">Reset</button>
+        ${p.mode === 'pomodoro' ? `<div class="pomodoro-cycle-dots">${[0, 1, 2, 3].map(idx => `<span class="${idx < p.cycle ? 'done' : ''}"></span>`).join('')}</div>` : ''}
+      </div>
+    </div></div>`;
+  }
+
+  // idle — covers "never started" and "a different integration's timer is running elsewhere"
+  return `<div class="pomodoro-card mb-5"><div class="pomodoro-inner">
+    <div style="font-size:38px;line-height:1;">⏱️</div>
+    <div style="flex:1;min-width:200px;">
+      <div class="pomodoro-label">Focus Timer</div>
+      <div class="pomodoro-task">${esc(i.name)}</div>
+      <div class="pomodoro-mode-toggle">
+        <button data-act="pomodoro-mode" data-mode="simple" class="${S.pomodoroModePref !== 'pomodoro' ? 'active' : ''}">Simple</button>
+        <button data-act="pomodoro-mode" data-mode="pomodoro" class="${S.pomodoroModePref === 'pomodoro' ? 'active' : ''}">Pomodoro 25/5</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        ${S.pomodoroModePref === 'pomodoro'
+      ? `<span style="font-size:11.5px;color:#94a3b8;">4 cycles, 5-min break after each</span>`
+      : `<select id="pomodoro-dur" class="pomodoro-select">${POMODORO_SIMPLE_OPTIONS.map(m => `<option value="${m}"${m === 25 ? ' selected' : ''}>${m} min</option>`).join('')}</select>`}
+        <button data-act="pomodoro-start" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="pomodoro-btn-start">▶ Start Focus Session</button>
+      </div>
+    </div>
+  </div></div>`;
+}
+
 function renderIntegDetail(clientId, integId) {
   const c = S.clients.find(x => x.id === clientId);
   const i = c?.integrations.find(x => x.id === integId);
@@ -206,31 +264,32 @@ function renderIntegDetail(clientId, integId) {
     <h1 class="text-xl font-bold text-gray-900">${esc(i.name)}</h1>${sbadge(i.status)}${overdueBadge(i)}
     <button data-act="copy-link" data-url="${esc((window?.location?.origin || '') + viewToPath('integ-detail', { clientId: c.id, integId: i.id }))}" title="Copy shareable link" class="text-xs font-medium text-gray-400 border border-gray-200 rounded-lg px-2.5 py-1 hover:border-[#0e7490] hover:text-[#0e7490] transition ml-auto">🔗 Copy Link</button>
   </div>
+  ${renderPomodoroWidget(c, i)}
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-5">
     <div class="bg-white rounded-2xl border border-gray-100 p-6">
       <h3 class="font-semibold text-gray-900 mb-4 text-sm">Details</h3>
       <div class="space-y-4">
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Status</label>
-          ${can('edit') ? `<select id="f-status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s => `<option${s === i.status ? ' selected' : ''}>${s}</option>`).join('')}</select>` : sbadge(i.status)}
+          ${can('editor') ? `<select id="f-status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s => `<option${s === i.status ? ' selected' : ''}>${s}</option>`).join('')}</select>` : sbadge(i.status)}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Assignee</label>
-          ${can('edit') ? assigneeSelect('f-assignee', i.assignee || '') :
+          ${can('editor') ? assigneeSelect('f-assignee', i.assignee || '') :
       `<p class="text-sm text-gray-700">${esc(i.assignee || '—')}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Due Date</label>
-          ${can('edit') ? `<input id="f-due" type="date" value="${esc(i.dueDate || '')}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>` :
+          ${can('editor') ? `<input id="f-due" type="date" value="${esc(i.dueDate || '')}" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>` :
       `<p class="text-sm text-gray-700">${fmtDate(i.dueDate)}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Description</label>
-          ${can('edit') ? `<textarea id="f-desc" rows="4" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(i.description || '')}</textarea>` :
+          ${can('editor') ? `<textarea id="f-desc" rows="4" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(i.description || '')}</textarea>` :
       `<p class="text-sm text-gray-700 leading-relaxed">${esc(i.description || '—')}</p>`}
         </div>
         <div><label class="block text-xs font-medium text-gray-400 mb-1.5">Next Action</label>
-          ${can('edit') ? `<textarea id="f-next" rows="2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(i.nextAction || '')}</textarea>` :
+          ${can('editor') ? `<textarea id="f-next" rows="2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(i.nextAction || '')}</textarea>` :
       `<p class="text-sm text-gray-700">${esc(i.nextAction || '—')}</p>`}
         </div>
-        ${can('edit') ? `<button data-act="save-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition flex items-center justify-center gap-2">Save Details <kbd class="text-[10px] font-normal opacity-60 border border-white/30 rounded px-1.5 py-0.5">${kbdHint('S')}</kbd></button>` : ''}
-        ${can('edit') && i.status !== 'Completed' ? `<button data-act="mark-complete" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-green-700 bg-green-50 hover:bg-green-100 font-medium rounded-xl py-2 text-xs transition">✓ Mark as Complete</button>` : ''}
+        ${can('editor') ? `<button data-act="save-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full btn-grad text-white font-semibold rounded-xl py-2.5 text-sm transition flex items-center justify-center gap-2">Save Details <kbd class="text-[10px] font-normal opacity-60 border border-white/30 rounded px-1.5 py-0.5">${kbdHint('S')}</kbd></button>` : ''}
+        ${can('editor') && i.status !== 'Completed' ? `<button data-act="mark-complete" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-green-700 bg-green-50 hover:bg-green-100 font-medium rounded-xl py-2 text-xs transition">✓ Mark as Complete</button>` : ''}
         ${can('admin') ? `<button data-act="delete-integ" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="w-full text-rose-400 hover:text-rose-600 text-xs py-1 transition">Delete Integration</button>` : ''}
       </div>
     </div>
@@ -241,7 +300,7 @@ function renderIntegDetail(clientId, integId) {
           Activity <span class="text-gray-400 font-normal">(${i.timeline?.length || 0})</span>
         </h3>
       </div>
-      ${can('edit') ? `<div class="flex gap-2.5 mb-4">
+      ${can('editor') ? `<div class="flex gap-2.5 mb-4">
         ${avatarChip(S.user?.name)}
         <div class="flex-1 min-w-0">
           <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5">
@@ -285,7 +344,7 @@ function renderIntegDetail(clientId, integId) {
             </div>
             <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5 mt-1 text-sm text-gray-700 leading-relaxed">${esc(t.update)}</div>
             <div class="flex items-center gap-3 mt-1.5 pl-1">
-              ${can('edit') ? `<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>` : ''}
+              ${can('editor') ? `<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>` : ''}
               ${can('admin') ? `<button data-act="delete-timeline-entry" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>` : ''}
               <button data-act="copy-update" data-text="${esc(t.update)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Copy</button>
               <button data-act="toggle-reaction" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" title="Acknowledge" class="text-[11px] ${(t.reactions || []).includes(S.user?.name) ? 'text-[#0e7490] font-semibold' : 'text-gray-400 hover:text-[#0e7490]'}">👍${(t.reactions || []).length ? ` ${t.reactions.length}` : ''}</button>
@@ -302,7 +361,7 @@ function renderIntegDetail(clientId, integId) {
   <div class="mt-6 bg-white rounded-2xl border border-gray-100 p-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-gray-900 text-sm">Milestones</h3>
-      ${can('edit') ? `<button data-act="add-milestone-btn" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs text-[#0e7490] font-semibold border border-[#0e7490]/30 bg-[#0e7490]/5 px-3 py-1.5 rounded-xl hover:bg-[#0e7490]/10 transition">+ Add Milestone</button>` : ''}
+      ${can('editor') ? `<button data-act="add-milestone-btn" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" class="text-xs text-[#0e7490] font-semibold border border-[#0e7490]/30 bg-[#0e7490]/5 px-3 py-1.5 rounded-xl hover:bg-[#0e7490]/10 transition">+ Add Milestone</button>` : ''}
     </div>
     ${(i.milestones || []).length ? `<div class="space-y-2">
       ${(i.milestones || []).map(ms => {
@@ -314,7 +373,7 @@ function renderIntegDetail(clientId, integId) {
             <div class="text-xs text-gray-400 mt-0.5">${ms.owner ? `Owner: ${esc(ms.owner)} · ` : ''}${ms.dueDate ? `Due: ${fmtDate(ms.dueDate)}` : 'No due date'}${ms.notes ? ` · ${esc(ms.notes)}` : ''}</div>
           </div>
           <span class="text-xs font-semibold bg-${msColor}-50 text-${msColor}-700 border border-${msColor}-200 px-2 py-0.5 rounded-full shrink-0">${ms.status}</span>
-          ${can('edit') ? `<div class="flex gap-2 shrink-0">
+          ${can('editor') ? `<div class="flex gap-2 shrink-0">
             <button data-act="edit-milestone-btn" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-mid="${esc(ms.id)}" class="text-xs text-gray-300 hover:text-[#0e7490]">Edit</button>
             ${can('admin') ? `<button data-act="delete-milestone" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-mid="${esc(ms.id)}" class="text-xs text-gray-300 hover:text-rose-500">Delete</button>` : ''}
           </div>`: ''}
