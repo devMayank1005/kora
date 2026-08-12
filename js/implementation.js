@@ -200,9 +200,9 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
           </div>
           <div class="flex gap-2 mt-2">
             <input id="ip-attach-label" type="text" placeholder="File label e.g. Signoff Mail (optional)" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
-            <label title="PDF, Excel or image, max 3MB" class="cursor-pointer flex items-center gap-1.5 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-3 py-2 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
+            <label title="PDF, Excel, image or email (.eml/.msg), max 3MB" class="cursor-pointer flex items-center gap-1.5 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-3 py-2 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
               📎 Attach File
-              <input id="ip-attach-file" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp"/>
+              <input id="ip-attach-file" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp,.eml,.msg"/>
             </label>
           </div>
           <div id="ip-attach-preview" class="hidden mt-2 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2.5 py-1.5 rounded-xl flex items-center gap-2">
@@ -237,7 +237,7 @@ function renderImplPhaseDetail(clientId, moduleId, phaseName) {
                   <input id="eat-label-${t.id}" type="text" placeholder="File label (optional)" value="${esc(t.attachment?.label || t.attachment?.fileName || '')}" class="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
                   <label class="cursor-pointer flex items-center gap-1 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-2.5 py-1.5 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
                     📎 ${t.attachment?.url ? 'Replace' : 'Attach'}
-                    <input id="eat-file-${t.id}" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp" data-tid="${esc(t.id)}"/>
+                    <input id="eat-file-${t.id}" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp,.eml,.msg" data-tid="${esc(t.id)}"/>
                   </label>
                 </div>
                 ${t.attachment?.url ? `<div id="eat-preview-${t.id}" class="mb-1 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2 py-1 rounded-xl flex items-center gap-2">

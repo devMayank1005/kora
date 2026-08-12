@@ -149,7 +149,12 @@ document.addEventListener('click', async e => {
     const text = document.getElementById('tl-input')?.value.trim();
     if (!text) { showToast('Enter an update', 'error'); return; }
     const c = S.clients.find(x => x.id === cid); const i = c?.integrations.find(x => x.id === iid); if (!i) return;
-    const entry = { id: uid(), date: todayStr(), update: text, addedBy: S.user.name, addedAt: new Date().toISOString() };
+    const attachUrl = document.getElementById('tl-attach-url')?.value.trim() || '';
+    const attachLabel = document.getElementById('tl-attach-label')?.value.trim() || '';
+    const attachMime = document.getElementById('tl-attach-mimetype')?.value || '';
+    const attachName = document.getElementById('tl-attach-filename')?.value || '';
+    const attachment = attachUrl ? { label: attachLabel || attachName || 'Attachment', url: attachUrl, fileName: attachName || attachLabel || 'Attachment', mimeType: attachMime } : undefined;
+    const entry = { id: uid(), date: todayStr(), update: text, addedBy: S.user.name, addedAt: new Date().toISOString(), ...(attachment ? { attachment } : {}) };
     i.timeline.unshift(entry); setBtnBusy(el, 'Saving…');
     try { await saveClients(`Timeline: ${i.name}`, [cid]); showToast('Update added ✓'); navigate('integ-detail', { clientId: cid, integId: iid }); }
     catch (err) { i.timeline.shift(); showToast('Failed: ' + err.message, 'error'); clearBtnBusy(el); }
@@ -162,10 +167,19 @@ document.addEventListener('click', async e => {
     const idx = i.timeline.findIndex(x => x.id === tid); if (idx < 0) return;
     const newText = document.getElementById(`edit-tl-${tid}`)?.value.trim();
     if (!newText) { showToast('Update cannot be empty', 'error'); return; }
+    const attachUrl = document.getElementById(`etl-url-${tid}`)?.value.trim() || '';
+    const attachLabel = document.getElementById(`etl-label-${tid}`)?.value.trim() || '';
+    const attachMime = document.getElementById(`etl-mimetype-${tid}`)?.value || '';
+    const attachName = document.getElementById(`etl-filename-${tid}`)?.value || '';
+    const attachment = attachUrl ? { label: attachLabel || attachName || 'Attachment', url: attachUrl, fileName: attachName || attachLabel || 'Attachment', mimeType: attachMime } : undefined;
     const original = i.timeline[idx];
-    if (newText === original.update) { S.editingTimelineId = null; render(); return; }
+    const textChanged = newText !== original.update;
+    if (!textChanged && attachment?.url === original.attachment?.url) { S.editingTimelineId = null; render(); return; }
     const snapshot = JSON.parse(JSON.stringify(original));
-    const updated = { ...original, edits: [...(original.edits || []), { text: original.update, editedAt: new Date().toISOString(), editedBy: S.user.name }], update: newText, lastEditedAt: new Date().toISOString(), lastEditedBy: S.user.name };
+    const updated = {
+      ...original, ...(attachment !== undefined ? { attachment } : { attachment: original.attachment }),
+      ...(textChanged ? { edits: [...(original.edits || []), { text: original.update, editedAt: new Date().toISOString(), editedBy: S.user.name }], update: newText, lastEditedAt: new Date().toISOString(), lastEditedBy: S.user.name } : {})
+    };
     i.timeline[idx] = updated;
     setBtnBusy(el, 'Saving…');
     try { await saveClients(`Edit timeline: ${i.name}`, [cid]); S.editingTimelineId = null; showToast('Update edited ✓'); navigate('integ-detail', { clientId: cid, integId: iid }); }
@@ -376,11 +390,16 @@ document.addEventListener('click', async e => {
     S.modal = { type: 'portfolio-export' }; render(); return;
   }
   if (act === 'clear-attach') {
+    // prefix is 'ip'/'tl' for add-forms (real id prefix is actually
+    // 'ip-attach'/'tl-attach' — historical naming) or 'eat'/'etl' for
+    // edit-forms. Resolved generically so it works for all 4 attach forms,
+    // not just the original Implementation ones.
     const prefix = el.dataset.prefix; const tid = el.dataset.tid || '';
-    const uid_ = tid ? `${prefix}-url-${tid}` : `${prefix}-attach-url`;
-    const mid_ = tid ? `${prefix}-mimetype-${tid}` : `${prefix}-attach-mimetype`;
-    const nid_ = tid ? `${prefix}-filename-${tid}` : `${prefix}-attach-filename`;
-    const pid_ = tid ? `eat-preview-${tid}` : `ip-attach-preview`;
+    const base = (prefix === 'ip' || prefix === 'tl') ? `${prefix}-attach` : prefix;
+    const uid_ = tid ? `${base}-url-${tid}` : `${base}-url`;
+    const mid_ = tid ? `${base}-mimetype-${tid}` : `${base}-mimetype`;
+    const nid_ = tid ? `${base}-filename-${tid}` : `${base}-filename`;
+    const pid_ = tid ? `${base}-preview-${tid}` : `${base}-preview`;
     const urlEl = document.getElementById(uid_); const mEl = document.getElementById(mid_); const nEl = document.getElementById(nid_); const pEl = document.getElementById(pid_);
     if (urlEl) urlEl.value = ''; if (mEl) mEl.value = ''; if (nEl) nEl.value = '';
     if (pEl) { pEl.classList.add('hidden'); }
@@ -1117,19 +1136,29 @@ document.addEventListener('change', async e => {
     render();
   }
   // ── File attachment upload handler ────────────────────────────
+  // Covers 4 forms total, 2 modules x (add form / edit form):
+  //   Implementation add-update:  ip-attach-file   (prefix 'ip-attach', no tid)
+  //   Implementation edit-update: eat-file-${tid}  (prefix 'eat', tid)
+  //   Integration add-update:     tl-attach-file    (prefix 'tl-attach', no tid)
+  //   Integration edit-update:    etl-file-${tid}   (prefix 'etl', tid)
   const fileEl = e.target;
   if (fileEl.type === 'file' && fileEl.accept && fileEl.files?.length) {
     const file = fileEl.files[0]; if (!file) return;
-    // Determine prefix and IDs based on input id
-    const isAddForm = fileEl.id === 'ip-attach-file';
     const tid = fileEl.dataset.tid || '';
-    const urlId = isAddForm ? 'ip-attach-url' : `eat-url-${tid}`;
-    const mimeId = isAddForm ? 'ip-attach-mimetype' : `eat-mimetype-${tid}`;
-    const nameId = isAddForm ? 'ip-attach-filename' : `eat-filename-${tid}`;
-    const previewId = isAddForm ? 'ip-attach-preview' : `eat-preview-${tid}`;
-    const nameDisplayId = isAddForm ? 'ip-attach-name' : `eat-name-${tid}`;
-    const iconDisplayId = isAddForm ? 'ip-attach-icon' : `eat-icon-${tid}`;
-    const labelEl = document.getElementById(isAddForm ? 'ip-attach-label' : `eat-label-${tid}`);
+    let prefix;
+    if (fileEl.id === 'ip-attach-file') prefix = 'ip-attach';
+    else if (fileEl.id === 'tl-attach-file') prefix = 'tl-attach';
+    else if (fileEl.id.startsWith('eat-file-')) prefix = 'eat';
+    else if (fileEl.id.startsWith('etl-file-')) prefix = 'etl';
+    else return; // unrecognized file input, not an attachment control
+    const isAddForm = !tid;
+    const urlId = isAddForm ? `${prefix}-url` : `${prefix}-url-${tid}`;
+    const mimeId = isAddForm ? `${prefix}-mimetype` : `${prefix}-mimetype-${tid}`;
+    const nameId = isAddForm ? `${prefix}-filename` : `${prefix}-filename-${tid}`;
+    const previewId = isAddForm ? `${prefix}-preview` : `${prefix}-preview-${tid}`;
+    const nameDisplayId = isAddForm ? `${prefix}-name` : `${prefix}-name-${tid}`;
+    const iconDisplayId = isAddForm ? `${prefix}-icon` : `${prefix}-icon-${tid}`;
+    const labelEl = document.getElementById(isAddForm ? `${prefix}-label` : `${prefix}-label-${tid}`);
     // Show uploading state
     const preview = document.getElementById(previewId);
     const nameDisplay = document.getElementById(nameDisplayId);

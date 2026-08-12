@@ -66,22 +66,35 @@ function fileIcon(url = '', mimeType = '') {
   if (m.includes('pdf') || u.endsWith('.pdf')) return '📄';
   if (m.includes('sheet') || m.includes('excel') || u.endsWith('.xlsx') || u.endsWith('.xls')) return '📊';
   if (m.includes('image') || u.match(/\.(jpg|jpeg|png|gif|webp)(\?|$)/)) return '🖼';
+  if (m.includes('rfc822') || m.includes('outlook') || u.match(/\.(eml|msg)(\?|$)/)) return '📧';
   return '📎';
 }
+// Extension -> canonical mimeType. Upload trusts this map, not the browser's
+// reported file.type — browsers are inconsistent about what type (if any)
+// they report for .eml/.msg (often '' or application/octet-stream depending
+// on OS file association), which would otherwise get silently rejected
+// server-side even for a genuinely valid email export.
+const ATTACH_EXT_MIME = {
+  '.pdf': 'application/pdf',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.xls': 'application/vnd.ms-excel',
+  '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.eml': 'message/rfc822',
+  '.msg': 'application/vnd.ms-outlook',
+};
 async function uploadAttachment(file) {
   const MAX = 3 * 1024 * 1024;
-  const ALLOWED = ['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-  if (!ALLOWED.includes(file.type) && file.type !== '') throw new Error('Unsupported file type. Use PDF, Excel (.xlsx/.xls), or images (JPG, PNG, GIF, WEBP).');
-  if (file.size > MAX) throw new Error(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max is 3MB.`);
   const ext = '.' + file.name.split('.').pop().toLowerCase();
-  const ok = ['.pdf', '.xlsx', '.xls', '.jpg', '.jpeg', '.png', '.gif', '.webp'];
-  if (!ok.includes(ext)) throw new Error(`Extension "${ext}" not supported.`);
+  const canonicalMime = ATTACH_EXT_MIME[ext];
+  if (!canonicalMime) throw new Error(`Extension "${ext}" not supported. Use PDF, Excel (.xlsx/.xls), images (JPG, PNG, GIF, WEBP), or email (.eml, .msg).`);
+  if (file.size > MAX) throw new Error(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max is 3MB.`);
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = async e => {
       const base64 = e.target.result.split(',')[1];
       try {
-        const r = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ base64, fileName: file.name, mimeType: file.type || 'application/octet-stream' }) });
+        const r = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ base64, fileName: file.name, mimeType: canonicalMime }) });
         const data = await r.json();
         if (!r.ok) throw new Error(data.error || 'Upload failed');
         resolve(data);

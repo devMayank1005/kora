@@ -26,9 +26,11 @@ const ALLOWED_TYPES = new Set([
   'image/png',
   'image/gif',
   'image/webp',
+  'message/rfc822',        // .eml — plain-text exported/forwarded email (Outlook, Gmail, any mail client)
+  'application/vnd.ms-outlook', // .msg — Outlook's native binary message format
 ]);
 
-const ALLOWED_EXTS = new Set(['.pdf', '.xlsx', '.xls', '.jpg', '.jpeg', '.png', '.gif', '.webp']);
+const ALLOWED_EXTS = new Set(['.pdf', '.xlsx', '.xls', '.jpg', '.jpeg', '.png', '.gif', '.webp', '.eml', '.msg']);
 
 const MAX_BYTES = 3 * 1024 * 1024; // 3MB
 // Rough base64-length ceiling so we never even attempt to decode something
@@ -39,6 +41,32 @@ const MAX_BASE64_CHARS = Math.ceil(MAX_BYTES * 4 / 3) + 1024;
 // claimed type, instead of trusting the client-supplied mimeType outright.
 // This is a content check, not a full parser — enough to catch a renamed
 // file, not a state-of-the-art format validator.
+function isOle2Container(b) {
+  // OLE2 Compound File Binary Format header signature. Both legacy .xls
+  // AND Outlook's .msg are OLE2 containers, so this signature alone cannot
+  // tell the two apart — a real parser would walk the directory sector and
+  // check the root storage entry's CLSID. This is a content check, not a
+  // full parser (see file header note), so it stops at "is this genuinely
+  // an OLE2 file" rather than "is this specifically a .msg vs a .xls."
+  // The extension + ALLOWED_EXTS check upstream is what pins down which
+  // one it's supposed to be; this only catches a non-OLE2 file renamed
+  // to .xls/.msg.
+  return b.length >= 8 && b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
+}
+
+function looksLikeEmlText(b) {
+  // .eml has no binary magic bytes — it's a plain-text RFC 822 message,
+  // so this is a heuristic, not a true signature check: confirm the file
+  // is text (no NUL bytes in the sampled prefix) and that it contains at
+  // least one line that looks like a real mail header near the top.
+  // Catches a renamed binary/non-email file; does not catch a crafted
+  // text file that fakes header lines — that's a real limit, not a bug.
+  const sample = b.slice(0, 8192);
+  if (sample.includes(0)) return false;
+  const text = sample.toString('utf8');
+  return /^(From|To|Subject|Date|Received|Return-Path|Delivered-To|Message-ID|MIME-Version|Content-Type):/im.test(text);
+}
+
 function matchesMagicBytes(buffer, mimeType) {
   const b = buffer;
   switch (mimeType) {
@@ -58,7 +86,12 @@ function matchesMagicBytes(buffer, mimeType) {
       return b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07);
     case 'application/vnd.ms-excel':
       // legacy .xls is an OLE2 compound document.
-      return b.length >= 8 && b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;
+      return isOle2Container(b);
+    case 'application/vnd.ms-outlook':
+      // .msg is also an OLE2 compound document — see isOle2Container note.
+      return isOle2Container(b);
+    case 'message/rfc822':
+      return looksLikeEmlText(b);
     default:
       return false;
   }
@@ -95,7 +128,7 @@ module.exports = async function handler(req, res) {
 
   if (!ALLOWED_TYPES.has(mimeType)) {
     return res.status(400).json({
-      error: `File type "${mimeType}" not allowed. Supported: PDF, Excel (.xlsx/.xls), images (JPG, PNG, GIF, WEBP).`,
+      error: `File type "${mimeType}" not allowed. Supported: PDF, Excel (.xlsx/.xls), images (JPG, PNG, GIF, WEBP), email (.eml, .msg).`,
     });
   }
 

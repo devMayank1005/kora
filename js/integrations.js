@@ -306,6 +306,20 @@ function renderIntegDetail(clientId, integId) {
           <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5">
             <textarea id="tl-input" rows="2" placeholder="Post an update…" class="w-full bg-transparent text-sm resize-none outline-none"></textarea>
           </div>
+          <div class="flex gap-2 mt-2">
+            <input id="tl-attach-label" type="text" placeholder="File label e.g. Signoff Mail (optional)" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
+            <label title="PDF, Excel, image or email (.eml/.msg), max 3MB" class="cursor-pointer flex items-center gap-1.5 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-3 py-2 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
+              📎 Attach File
+              <input id="tl-attach-file" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp,.eml,.msg"/>
+            </label>
+          </div>
+          <div id="tl-attach-preview" class="hidden mt-2 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2.5 py-1.5 rounded-xl flex items-center gap-2">
+            <span id="tl-attach-icon">📎</span><span id="tl-attach-name" class="flex-1 truncate"></span>
+            <button data-act="clear-attach" data-prefix="tl" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
+          </div>
+          <input id="tl-attach-url" type="hidden" value=""/>
+          <input id="tl-attach-mimetype" type="hidden" value=""/>
+          <input id="tl-attach-filename" type="hidden" value=""/>
           <div class="flex items-center gap-3 mt-1.5 pl-1">
             <span class="text-[11px] text-gray-400">Posts immediately — no need to Save Details</span>
             <div class="flex-1"></div>
@@ -326,7 +340,26 @@ function renderIntegDetail(clientId, integId) {
               ${avatarChip(t.addedBy)}
               <div class="flex-1 min-w-0">
                 <div class="text-xs font-semibold text-[#0e7490] mb-1">${esc(t.date)} · ${esc(t.addedBy || '')}</div>
-                <textarea id="edit-tl-${t.id}" rows="3" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(t.update)}</textarea>
+                <textarea id="edit-tl-${t.id}" rows="3" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none mb-2">${esc(t.update)}</textarea>
+                <div class="flex gap-2 mb-1">
+                  <input id="etl-label-${t.id}" type="text" placeholder="File label (optional)" value="${esc(t.attachment?.label || t.attachment?.fileName || '')}" class="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
+                  <label class="cursor-pointer flex items-center gap-1 text-xs font-medium text-[#0e7490] bg-[#0e7490]/8 border border-[#0e7490]/30 px-2.5 py-1.5 rounded-xl hover:bg-[#0e7490]/15 transition whitespace-nowrap shrink-0">
+                    📎 ${t.attachment?.url ? 'Replace' : 'Attach'}
+                    <input id="etl-file-${t.id}" type="file" class="hidden" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp,.eml,.msg" data-tid="${esc(t.id)}"/>
+                  </label>
+                </div>
+                ${t.attachment?.url ? `<div id="etl-preview-${t.id}" class="mb-1 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2 py-1 rounded-xl flex items-center gap-2">
+                  <span>${fileIcon(t.attachment.url, t.attachment.mimeType || '')}</span>
+                  <span class="flex-1 truncate" id="etl-name-${t.id}">${esc(t.attachment.fileName || t.attachment.label || 'Attachment')}</span>
+                  <button data-act="clear-attach" data-prefix="etl" data-tid="${esc(t.id)}" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
+                </div>`: `<div id="etl-preview-${t.id}" class="hidden mb-1 text-xs text-[#0e7490] bg-[#0e7490]/8 px-2 py-1 rounded-xl flex items-center gap-2">
+                  <span id="etl-icon-${t.id}">📎</span>
+                  <span class="flex-1 truncate" id="etl-name-${t.id}"></span>
+                  <button data-act="clear-attach" data-prefix="etl" data-tid="${esc(t.id)}" class="text-gray-400 hover:text-rose-500 shrink-0">✕</button>
+                </div>`}
+                <input id="etl-url-${t.id}" type="hidden" value="${esc(t.attachment?.url || '')}"/>
+                <input id="etl-mimetype-${t.id}" type="hidden" value="${esc(t.attachment?.mimeType || '')}"/>
+                <input id="etl-filename-${t.id}" type="hidden" value="${esc(t.attachment?.fileName || '')}"/>
                 <div class="flex gap-2 mt-2">
                   <button data-act="cancel-edit-timeline" class="flex-1 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50 transition">Cancel</button>
                   <button data-act="save-edit-timeline" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" class="flex-1 text-xs font-semibold text-white bg-[#0e7490] rounded-lg py-1.5 hover:bg-[#0d3d4f] transition">Save Edit</button>
@@ -343,6 +376,7 @@ function renderIntegDetail(clientId, integId) {
               ${hasHistory ? `<button data-act="toggle-history" data-tid="${esc(t.id)}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">edited${t.edits.length > 1 ? ` (${t.edits.length}×)` : ''} — ${isExpanded ? 'hide' : 'view'}</button>` : ''}
             </div>
             <div class="bg-gray-50 rounded-2xl rounded-tl-md px-3.5 py-2.5 mt-1 text-sm text-gray-700 leading-relaxed">${esc(t.update)}</div>
+            ${t.attachment?.url ? attachmentChip(t.attachment) : ''}
             <div class="flex items-center gap-3 mt-1.5 pl-1">
               ${can('editor') ? `<button data-act="edit-timeline" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-[#0e7490]">Edit</button>` : ''}
               ${can('admin') ? `<button data-act="delete-timeline-entry" data-cid="${esc(c.id)}" data-iid="${esc(i.id)}" data-tid="${esc(t.id)}" class="text-[11px] text-gray-400 hover:text-rose-500">Delete</button>` : ''}
