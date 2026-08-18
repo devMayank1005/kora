@@ -83,32 +83,38 @@ function renderDashboard() {
     return `<div class="k-page fade kdash2">
   <style>
     .kdash2{--dp:#2563EB;--da:#059669;--dd:#DC2626;--damber:#D97706;--dbg:#F8FAFC;--dcard:#FFFFFF;--dborder:#E4ECFC;--dmute:#64748B;--dink:#0F172A;}
-    .kdash2 .bento{border-radius:24px;background:var(--dcard);border:1px solid var(--dborder);box-shadow:0 4px 6px rgba(0,0,0,.05);}
-    .kdash2 .row2{display:flex;align-items:center;padding:7px 4px;border-bottom:1px solid var(--dborder);font-size:12.5px;cursor:pointer;}
+    .kdash2 .bento{border-radius:24px;background:var(--dcard);border:1px solid var(--dborder);box-shadow:0 4px 6px rgba(0,0,0,.05);padding:20px;}
+    .kdash2 .row2{display:flex;align-items:center;padding:9px 4px;border-bottom:1px solid var(--dborder);font-size:12.5px;cursor:pointer;}
     .kdash2 .row2:last-child{border-bottom:none;}
     .kdash2 .row2:hover{background:rgba(37,99,235,.03);}
     .kdash2 .chip2{font-size:11px;font-weight:600;padding:2px 9px;border-radius:999px;display:inline-flex;align-items:center;white-space:nowrap;}
     .kdash2 .hd2{color:var(--dmute);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+    .kdash2 .hd-row{display:flex;align-items:center;border-bottom:1px solid var(--dborder);padding:0 4px;}
     .kdash2 .scrollbox{max-height:520px;overflow-y:auto;}
     .kdash2 .dot2{width:8px;height:8px;border-radius:999px;display:inline-block;}
+    .kdash2 .col-domain{width:110px;flex-shrink:0;padding:0 8px;}
+    .kdash2 .col-item{flex:1;min-width:0;padding:0 8px;}
+    .kdash2 .col-client{width:140px;flex-shrink:0;padding:0 8px;}
+    .kdash2 .col-detail{width:150px;flex-shrink:0;padding:0 8px;}
+    .kdash2 .col-owner{width:120px;flex-shrink:0;padding:0 8px;}
   </style>
-  <h1 class="text-2xl font-extrabold" style="color:var(--dink)">My Critical Items</h1>
-  <p class="text-sm mt-0.5 mb-5" style="color:var(--dmute)">Assigned to you, plus anything unassigned that needs an owner</p>
-  <div class="bento p-5 mb-4">
+  <h1 class="text-2xl font-extrabold" style="color:var(--dink);margin-bottom:4px;">My Critical Items</h1>
+  <p class="text-sm mt-0.5 mb-5" style="color:var(--dmute);margin-bottom:20px;">Assigned to you, plus anything unassigned that needs an owner</p>
+  <div class="bento mb-4">
     <div class="flex items-center justify-between mb-2">
       <h3 class="font-bold text-sm flex items-center gap-2" style="color:var(--dink)"><span class="dot2" style="background:var(--dd)"></span>⚠️ Critical Items</h3>
       <span class="chip2" style="background:rgba(220,38,38,.08);color:var(--dd)">${myItems.length}</span>
     </div>
     <div class="scrollbox">
-      <div class="flex" style="border-bottom:1px solid var(--dborder)">
-        <div class="hd2 w-24 px-2 py-1.5">Domain</div><div class="hd2 flex-1 px-2 py-1.5">Item</div><div class="hd2 w-28 px-2 py-1.5">Client</div><div class="hd2 w-40 px-2 py-1.5">Age / Detail</div><div class="hd2 w-24 px-2 py-1.5">Owner</div>
+      <div class="hd-row">
+        <div class="hd2 col-domain py-1.5">Domain</div><div class="hd2 col-item py-1.5">Item</div><div class="hd2 col-client py-1.5">Client</div><div class="hd2 col-detail py-1.5">Age / Detail</div><div class="hd2 col-owner py-1.5">Owner</div>
       </div>
       ${myItems.length ? myItems.map(it => `<div class="row2" data-act="${it.act}" data-cid="${esc(it.cid)}" data-id="${esc(it.cid)}" ${it.iid ? `data-iid="${esc(it.iid)}"` : ''}>
-        <div class="w-24 px-2"><span class="chip2" style="background:${it.severity === 0 ? 'rgba(220,38,38,.08)' : 'rgba(217,119,6,.1)'};color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.domain)}</span></div>
-        <div class="flex-1 px-2 font-medium truncate" style="color:var(--dink)" title="${esc(it.title)}">${esc(it.title)}</div>
-        <div class="w-28 px-2 truncate" style="color:var(--dmute)">${esc(it.client)}</div>
-        <div class="w-40 px-2 font-semibold truncate" style="color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.detail)}</div>
-        <div class="w-24 px-2 truncate" style="color:var(--dmute)">${esc(it.owner)}</div>
+        <div class="col-domain"><span class="chip2" style="background:${it.severity === 0 ? 'rgba(220,38,38,.08)' : 'rgba(217,119,6,.1)'};color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.domain)}</span></div>
+        <div class="col-item font-medium truncate" style="color:var(--dink)" title="${esc(it.title)}">${esc(it.title)}</div>
+        <div class="col-client truncate" style="color:var(--dmute)">${esc(it.client)}</div>
+        <div class="col-detail font-semibold truncate" style="color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.detail)}</div>
+        <div class="col-owner truncate" style="color:var(--dmute)">${esc(it.owner)}</div>
       </div>`).join('') : `<div class="text-sm text-center py-12" style="color:var(--dmute)">Nothing critical assigned to you right now 🎉</div>`}
     </div>
   </div>
@@ -193,17 +199,17 @@ function renderDashboard() {
       </div>
     </div>
     <div class="scrollbox">
-      <div class="flex" style="border-bottom:1px solid var(--dborder)">
-        <div class="hd2 flex-1 px-2 py-1.5" style="padding-left:12px;">Item</div><div class="hd2 w-28 px-2 py-1.5">Client</div><div class="hd2 w-40 px-2 py-1.5">Age / Detail</div><div class="hd2 w-24 px-2 py-1.5">Owner</div>
+      <div class="hd-row">
+        <div class="hd2 col-item py-1.5" style="padding-left:12px;">Item</div><div class="hd2 col-client py-1.5">Client</div><div class="hd2 col-detail py-1.5">Age / Detail</div><div class="hd2 col-owner py-1.5">Owner</div>
       </div>
       ${critFiltered.length ? critFiltered.map(it => `<div class="row2" data-act="${it.act}" data-cid="${esc(it.cid)}" data-id="${esc(it.cid)}" ${it.iid ? `data-iid="${esc(it.iid)}"` : ''} style="position:relative;padding-left:0;border-left:3px solid ${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'};">
-        <div class="flex-1 px-2" style="padding-left:9px;">
+        <div class="col-item" style="padding-left:9px;">
           <div class="font-medium truncate" style="color:var(--dink)" title="${esc(it.title)}">${esc(it.title)}</div>
           <div class="text-[10px] mt-0.5" style="color:var(--dmute)">${esc(it.domain)}</div>
         </div>
-        <div class="w-28 px-2 truncate" style="color:var(--dmute)">${esc(it.client)}</div>
-        <div class="w-40 px-2 font-semibold truncate" style="color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.detail)}</div>
-        <div class="w-24 px-2 truncate" style="color:var(--dmute)">${esc(it.owner)}</div>
+        <div class="col-client truncate" style="color:var(--dmute)">${esc(it.client)}</div>
+        <div class="col-detail font-semibold truncate" style="color:${it.severity === 0 ? 'var(--dd)' : 'var(--damber)'}">${esc(it.detail)}</div>
+        <div class="col-owner truncate" style="color:var(--dmute)">${esc(it.owner)}</div>
       </div>`).join('') : `<div class="text-sm text-center py-8" style="color:var(--dmute)">${S.dashCritSearch || S.dashCritFilter !== 'all' ? 'No matches' : 'Nothing critical right now 🎉'}</div>`}
     </div>
   </div>`;
