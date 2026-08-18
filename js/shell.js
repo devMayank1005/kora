@@ -243,21 +243,21 @@ function renderSidebar() {
     ${can('admin') ? navItem('admin', 'Admin', ico.admin) : ''}
   </nav>
   <div class="k-side-profile shrink-0">
-    ${!collapsed ? `<button data-act="open-profile" class="w-full flex items-center gap-2.5 mb-2 rounded-md p-1.5 hover:bg-white/5 text-left" style="transition:background 120ms ease;">
-      <div style="width:28px;height:28px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0;">${esc((S.user?.name || '?')[0].toUpperCase())}</div>
+    ${!collapsed ? `<button data-act="open-profile" class="k-side-profile-btn" title="View Profile">
+      <div style="width:30px;height:30px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${esc((S.user?.name || '?')[0].toUpperCase())}</div>
       <div class="min-w-0 flex-1">
         <div class="k-side-username truncate">${esc(S.user?.name)}</div>
-        <div class="k-side-tag" style="text-transform:capitalize;">${esc(S.user?.role)}</div>
+        <div class="k-side-tag">${esc(S.user?.role)}</div>
       </div>
     </button>`: ``}
-    <div class="${collapsed ? 'flex flex-col items-center gap-1.5' : 'flex items-center gap-1'}">
-      <button data-act="toggle-dark" title="Toggle theme" class="k-side-item ${collapsed ? '' : 'flex-1'}" style="justify-content:center;padding:0;margin:0;height:28px;${collapsed ? 'width:32px;' : ''}">
+    <div class="${collapsed ? 'flex flex-col items-center gap-1.5' : 'flex items-center gap-1.5'}">
+      <button data-act="toggle-dark" title="Toggle theme" class="k-side-action-btn ${collapsed ? 'w-full' : 'flex-1'}">
         ${S.darkMode ? ico.moon : ico.sun}
       </button>
-      <button data-act="logout" title="Sign out" class="k-side-item ${collapsed ? '' : 'flex-1'}" style="justify-content:center;padding:0;margin:0;height:28px;${collapsed ? 'width:32px;' : ''}color:var(--mute-2);">
+      <button data-act="logout" title="Sign out" class="k-side-action-btn ${collapsed ? 'w-full' : 'flex-1'}">
         ${ico.logout}
       </button>
-      <button data-act="toggle-sidebar" title="${collapsed ? 'Expand' : 'Collapse'}" class="k-side-item" style="justify-content:center;padding:0;margin:0;height:28px;width:32px;">
+      <button data-act="toggle-sidebar" title="${collapsed ? 'Expand' : 'Collapse'}" class="k-side-action-btn" style="width:32px;">
         <span style="display:inline-block;transform:rotate(${collapsed ? '0' : '180'}deg);transition:transform 200ms ease;">${ico.chevron}</span>
       </button>
     </div>

@@ -37,6 +37,29 @@
 }
 
 /* Base */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: inherit;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+input, select, textarea {
+  font: inherit;
+  color: inherit;
+}
+
 * {
   font-family: var(--font);
   font-feature-settings: 'ss01', 'cv11';
@@ -545,40 +568,41 @@ label {
   flex-direction: column;
   box-sizing: border-box;
   background: var(--ink-2);
-  color: #d4d4d8;
-  border-right: 1px solid var(--ink);
+  color: #f1f5f9;
+  border-right: 1px solid rgba(255, 255, 255, .08);
 }
 
 .k-sidebar .k-side-header {
-  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
 }
 
 .k-sidebar .k-side-search {
-  background: rgba(255, 255, 255, .05);
-  border: 1px solid rgba(255, 255, 255, .08);
-  color: #fff;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .1);
+  color: #ffffff;
   font-size: 13px;
-  height: 30px;
+  height: 32px;
+  border-radius: 6px;
 }
 
 .k-sidebar .k-side-search::placeholder {
-  color: #71717a;
+  color: #94a3b8;
 }
 
 .k-sidebar .k-side-search:focus {
-  border-color: rgba(255, 255, 255, .2);
+  border-color: rgba(255, 255, 255, .3);
   box-shadow: none;
-  background: rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .1);
 }
 
 .k-sidebar .k-side-group {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #52525b;
-  padding: 0 12px;
-  margin-top: 16px;
+  color: #94a3b8;
+  padding: 0 14px;
+  margin-top: 18px;
   margin-bottom: 6px;
 }
 
@@ -586,31 +610,36 @@ label {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 30px;
+  height: 34px;
   padding: 0 12px;
-  margin: 0 8px;
-  font-size: 13px;
+  margin: 2px 8px;
+  font-size: 13.5px;
   font-weight: 500;
-  color: #a1a1aa;
-  border-radius: var(--radius);
+  color: #cbd5e1;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
   transition: color var(--t-fast), background var(--t-fast);
+  cursor: pointer;
+  text-align: left;
 }
 
 .k-sidebar .k-side-item:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, .05);
+  color: #ffffff;
+  background: rgba(255, 255, 255, .08);
 }
 
 .k-sidebar .k-side-item.active {
-  color: #fff;
-  background: rgba(255, 255, 255, .08);
+  color: #ffffff;
+  background: rgba(255, 255, 255, .14);
+  font-weight: 600;
 }
 
 .k-sidebar .k-side-icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  opacity: .7;
+  opacity: .85;
 }
 
 .k-sidebar .k-side-item.active .k-side-icon,
@@ -619,31 +648,60 @@ label {
 }
 
 .k-sidebar .k-side-profile {
-  border-top: 1px solid rgba(255, 255, 255, .06);
+  border-top: 1px solid rgba(255, 255, 255, .08);
   padding: 12px;
+  background: transparent;
 }
 
-.k-sidebar .k-side-profile:hover {
-  background: rgba(255, 255, 255, .03);
+.k-sidebar .k-side-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  transition: background 120ms ease;
+  cursor: pointer;
+}
+
+.k-sidebar .k-side-profile-btn:hover {
+  background: rgba(255, 255, 255, .08);
 }
 
 .k-sidebar .k-side-username {
-  font-size: 12px;
-  font-weight: 500;
-  color: #fafafa;
-}
-
-.k-sidebar .k-side-brand {
-  font-family: var(--font);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--teal);
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  line-height: 1.3;
 }
 
 .k-sidebar .k-side-tag {
-  color: #52525b;
-  font-size: 10px;
+  color: #94a3b8;
+  font-size: 11px;
+  text-transform: capitalize;
+  line-height: 1.3;
+}
+
+.k-sidebar .k-side-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 30px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .1);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+
+.k-sidebar .k-side-action-btn:hover {
+  background: rgba(255, 255, 255, .14);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, .25);
 }
 
 /* ── Modals ──────────────────────────────────────────────────── */
