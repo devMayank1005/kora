@@ -1906,9 +1906,28 @@ html.dark .k-modal-overlay {
 .bg-amber-50 { background-color: #fffbeb; }
 .bg-amber-100 { background-color: #fef3c7; }
 
-.hidden { display: none !important; }
+.hidden { display: none; }
 .block { display: block; }
 .inline-block { display: inline-block; }
 .overflow-hidden { overflow: hidden; }
 .overflow-y-auto { overflow-y: auto; }
 .overflow-x-auto { overflow-x: auto; }
+
+@media (min-width: 768px) {
+  .md\:flex { display: flex !important; }
+  .md\:hidden { display: none !important; }
+  .md\:block { display: block !important; }
+}
+
+@media (min-width: 1024px) {
+  .lg\:flex { display: flex !important; }
+  .lg\:hidden { display: none !important; }
+  .lg\:block { display: block !important; }
+}
+
+@media (max-width: 1023px) {
+  .login-left-panel { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .login-left-panel { display: flex !important; }
+}

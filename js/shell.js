@@ -314,7 +314,7 @@ function renderLogin() {
     @keyframes login-bar-fill { from { width: 0; } to { width: var(--w); } }
   </style>
   <div class="min-h-screen flex" style="background:var(--paper);">
-  <div class="hidden lg:flex flex-col justify-between" style="width:58%;background:var(--ink-2);padding:56px 64px;position:relative;overflow:hidden;">
+  <div class="login-left-panel flex-col justify-between" style="width:58%;background:var(--ink-2);padding:56px 64px;position:relative;overflow:hidden;">
     <div class="login-mesh"></div>
     <div class="login-stagger login-stagger-1" style="position:relative;z-index:1;">
       <div style="display:inline-block;background:#fff;padding:8px 16px;border-radius:10px;">
@@ -343,7 +343,7 @@ function renderLogin() {
     <div style="position:relative;z-index:1;font-size:11px;color:#475569;">© ${new Date().getFullYear()} Kognoz · Internal delivery platform</div>
   </div>
 
-  <div class="flex items-center justify-center" style="width:100%;padding:24px;">
+  <div class="flex-1 flex items-center justify-center" style="padding:24px;">
     <div class="login-stagger login-stagger-3" style="width:100%;max-width:360px;">
       <div class="lg:hidden text-center" style="margin-bottom:28px;">
         <img src="${KOGNOZ_LOGO}" alt="Kognoz" style="height:40px;width:auto;object-fit:contain;margin:0 auto;display:block;" />
