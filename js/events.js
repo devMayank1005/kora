@@ -38,12 +38,20 @@ async function finishLogin(ld, errEl) {
 // to what's actually shown on the login page. Codes are deliberately
 // generic/safe — the real detail is server-side only in Vercel's logs,
 // same L-1 "don't leak internal error detail" pattern as password login.
+// Every known code gets its own message; anything unrecognized still shows
+// the raw code in parentheses so a failure is diagnosable from the screen
+// alone, without needing to go digging through Vercel logs first.
 function ssoErrorMessage(code) {
   if (code === 'not_authorized') return "This Microsoft account isn't registered in Kora. Contact your admin to be added, or sign in with a username/password.";
   if (code === 'state_invalid') return 'Sign-in session expired or invalid. Please try again.';
   if (code === 'no_email' || code === 'graph_failed') return "Couldn't read your Microsoft account's email. Contact your admin.";
-  if (code === 'not_configured') return 'Microsoft sign-in is not set up yet. Use your username and password.';
-  return 'Microsoft sign-in failed. Please try again, or use your username and password.';
+  if (code === 'not_configured') return 'Microsoft sign-in is not set up yet (missing server config). Use your username and password.';
+  if (code === 'exchange_failed') return 'Microsoft rejected the sign-in request — check the Azure client ID / client secret / tenant ID set in Vercel. Use your username and password for now.';
+  if (code === 'lookup_failed') return "Couldn't check your account against Kora's user list (database error). Use your username and password for now.";
+  if (code === 'no_code') return 'Microsoft sign-in was interrupted before completing. Please try again.';
+  if (code === 'unexpected_error') return 'Something went wrong during Microsoft sign-in. Use your username and password for now.';
+  if (typeof code === 'string' && code.startsWith('msft_')) return `Microsoft sign-in was cancelled or denied (${code.slice(5)}).`;
+  return `Microsoft sign-in failed${code ? ` (${code})` : ''}. Please try again, or use your username and password.`;
 }
 
 document.addEventListener('click', async e => {
