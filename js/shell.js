@@ -360,6 +360,18 @@ function renderLogin() {
         <div id="lerr" class="${S.authMessage ? '' : 'hidden'}" style="font-size:12px;color:var(--red);background:var(--red-hi);padding:8px 12px;border-radius:var(--radius);text-align:center;">${S.authMessage ? esc(S.authMessage) : ''}</div>
         <button data-act="login" class="k-btn k-btn-primary k-btn-lg" style="width:100%;margin-top:4px;">Sign In</button>
       </div>
+      <div style="display:flex;align-items:center;gap:10px;margin:20px 0;">
+        <div style="flex:1;height:1px;background:var(--line);"></div>
+        <span style="font-size:11px;color:var(--mute-2);">OR</span>
+        <div style="flex:1;height:1px;background:var(--line);"></div>
+      </div>
+      <a href="/api/auth-microsoft" class="k-btn k-btn-lg" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;background:#fff;border:1px solid var(--line);color:var(--ink);text-decoration:none;">
+        <svg width="18" height="18" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+        </svg>
+        Sign in with Microsoft 365
+      </a>
       <div style="text-align:center;margin-top:24px;font-size:11px;color:var(--mute-2);">
         Kognoz internal platform · Access is provisioned by your admin
       </div>

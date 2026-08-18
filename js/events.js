@@ -1,4 +1,51 @@
 // ─── EVENTS ───────────────────────────────────────────────────────
+
+// Shared post-login bootstrap — identical whether the session came from a
+// password login (POST /api/login) or Microsoft SSO (POST
+// /api/auth-microsoft-exchange, see init() below): both return the same
+// { token, user, usersSha } shape, so both end up here. errEl is optional
+// (the SSO path runs before the login form even exists in the DOM, so
+// failures there fall back to S.authMessage, shown once renderLogin runs).
+async function finishLogin(ld, errEl) {
+  S.sessionToken = ld.token; S.user = ld.user; S.shas.users = ld.usersSha;
+  document.getElementById('app').innerHTML = renderAppSkeleton();
+  try {
+    const cl = await apiRead('data/clients.json'); S.clients = cl.content; S.shas.clients = cl.sha;
+  } catch (err) {
+    S.user = null; S.sessionToken = null; render();
+    const msg = 'Loaded user but failed to load clients.';
+    if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } else { S.authMessage = msg; render(); }
+    return false;
+  }
+  try {
+    const ul = await apiRead('data/users.json');
+    S.usersForDropdown = ul.content.map(u => ({ id: u.id, name: u.name || u.username, role: u.role, username: u.username }));
+    if (can('admin')) { S.users = ul.content; S.shas.users = ul.sha; }
+  } catch (err) {
+    S.usersForDropdown = [{ id: S.user.id, name: S.user.name || S.user.username, role: S.user.role, username: S.user.username }];
+  }
+  persistSession(S.sessionToken, S.user);
+  const resumed = S.pendingPath ? pathToView(S.pendingPath) : null;
+  S.pendingPath = null;
+  if (resumed && validateView(resumed.view, resumed.params || {})) navigate(resumed.view, resumed.params || {});
+  else navigate('dashboard');
+  clearInterval(_bgRefreshTimer);
+  _bgRefreshTimer = setInterval(backgroundRefreshClients, 60000);
+  return true;
+}
+
+// Maps a ?ssoError=<code> query param (set by api/auth-microsoft-callback.js)
+// to what's actually shown on the login page. Codes are deliberately
+// generic/safe — the real detail is server-side only in Vercel's logs,
+// same L-1 "don't leak internal error detail" pattern as password login.
+function ssoErrorMessage(code) {
+  if (code === 'not_authorized') return "This Microsoft account isn't registered in Kora. Contact your admin to be added, or sign in with a username/password.";
+  if (code === 'state_invalid') return 'Sign-in session expired or invalid. Please try again.';
+  if (code === 'no_email' || code === 'graph_failed') return "Couldn't read your Microsoft account's email. Contact your admin.";
+  if (code === 'not_configured') return 'Microsoft sign-in is not set up yet. Use your username and password.';
+  return 'Microsoft sign-in failed. Please try again, or use your username and password.';
+}
+
 document.addEventListener('click', async e => {
   if (e.target.id === 'modal-overlay' && e.target === e.currentTarget) { if (S.modal?.busy) return; S.modal = null; render(); return; }
   if (e.target.id === 'cmdp-overlay') { S.cmdPaletteOpen = false; render(); return; }
@@ -22,19 +69,7 @@ document.addEventListener('click', async e => {
       ld = await lr.json();
       if (!lr.ok) { clearBtnBusy(el); const e2 = document.getElementById('lerr'); if (e2) { e2.textContent = ld.error || 'Login failed'; e2.classList.remove('hidden'); } return; }
     } catch (err) { clearBtnBusy(el); const e2 = document.getElementById('lerr'); if (e2) { e2.textContent = 'Connection failed. Check repo/env setup.'; e2.classList.remove('hidden'); } return; }
-    S.sessionToken = ld.token; S.user = ld.user; S.shas.users = ld.usersSha;
-    document.getElementById('app').innerHTML = renderAppSkeleton();
-    try { const cl = await apiRead('data/clients.json'); S.clients = cl.content; S.shas.clients = cl.sha; }
-    catch (err) { S.user = null; S.sessionToken = null; render(); const e2 = document.getElementById('lerr'); if (e2) { e2.textContent = 'Loaded user but failed to load clients.'; e2.classList.remove('hidden'); } return; }
-    try { const ul = await apiRead('data/users.json'); S.usersForDropdown = ul.content.map(u => ({ id: u.id, name: u.name || u.username, role: u.role, username: u.username })); if (can('admin')) { S.users = ul.content; S.shas.users = ul.sha; } }
-    catch (err) { S.usersForDropdown = [{ id: S.user.id, name: S.user.name || S.user.username, role: S.user.role, username: S.user.username }]; }
-    persistSession(S.sessionToken, S.user);
-    const resumed = S.pendingPath ? pathToView(S.pendingPath) : null;
-    S.pendingPath = null;
-    if (resumed && validateView(resumed.view, resumed.params || {})) navigate(resumed.view, resumed.params || {});
-    else navigate('dashboard');
-    clearInterval(_bgRefreshTimer);
-    _bgRefreshTimer = setInterval(backgroundRefreshClients, 60000);
+    await finishLogin(ld, document.getElementById('lerr'));
     return;
   }
   if (act === 'logout') { clearInterval(_bgRefreshTimer); _bgRefreshTimer = null; clearSession(); S.user = null; S.clients = []; S.users = []; S.usersForDropdown = []; S.shas = { clients: null, users: null }; S.sessionToken = null; S.viewAsRole = null; S.lastActiveMap = {}; S.lastActiveFetched = false; S.bulkUserMode = false; S.bulkUserSelected = new Set(); navigate('login'); return; }
@@ -1292,6 +1327,30 @@ document.addEventListener('drop', e => {
 });
 
 (async function init() {
+  // Coming back from Microsoft sign-in: api/auth-microsoft-callback.js
+  // redirects to /?ssoTicket=... (success) or /?ssoError=<code> (denied /
+  // failed). Handled before restoreSession() so it takes priority even if
+  // an old/expired local session happens to still be sitting in
+  // localStorage. Query string is stripped immediately either way — the
+  // ticket is single-purpose and only valid for ~60s, but there's no
+  // reason to leave it sitting in the visible URL even for that long.
+  const qp = new URLSearchParams(location.search);
+  const ssoTicket = qp.get('ssoTicket'), ssoError = qp.get('ssoError');
+  if (ssoTicket || ssoError) history.replaceState({}, '', location.pathname);
+
+  if (ssoTicket) {
+    try {
+      const r = await fetch('/api/auth-microsoft-exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: ssoTicket }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || 'Microsoft sign-in failed');
+      await finishLogin(d);
+    } catch (err) {
+      S.authMessage = err.message || 'Microsoft sign-in failed'; render();
+    }
+    return;
+  }
+  if (ssoError) { S.authMessage = ssoErrorMessage(ssoError); render(); return; }
+
   const sess = restoreSession();
   if (sess && sess.token && sess.user) {
     S.sessionToken = sess.token; S.user = sess.user;
