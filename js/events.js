@@ -2,7 +2,7 @@
 
 // Shared post-login bootstrap — identical whether the session came from a
 // password login (POST /api/login) or Microsoft SSO (POST
-// /api/auth-microsoft-exchange, see init() below): both return the same
+// POST /api/auth-microsoft, see init() below): both return the same
 // { token, user, usersSha } shape, so both end up here. errEl is optional
 // (the SSO path runs before the login form even exists in the DOM, so
 // failures there fall back to S.authMessage, shown once renderLogin runs).
@@ -34,7 +34,7 @@ async function finishLogin(ld, errEl) {
   return true;
 }
 
-// Maps a ?ssoError=<code> query param (set by api/auth-microsoft-callback.js)
+// Maps a ?ssoError=<code> query param (set by api/auth-microsoft.js's callback step)
 // to what's actually shown on the login page. Codes are deliberately
 // generic/safe — the real detail is server-side only in Vercel's logs,
 // same L-1 "don't leak internal error detail" pattern as password login.
@@ -717,7 +717,7 @@ document.addEventListener('click', async e => {
       }
       else if (m._act === 'force-logout-all') {
         try {
-          const r = await fetch('/api/force-logout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ scope: 'all' }) });
+          const r = await fetch('/api/account', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ action: 'force-logout', scope: 'all' }) });
           const d = await r.json();
           if (!r.ok) throw new Error(d.error || 'Force logout failed');
           S.modal = null; showToast(`${d.affected} user${d.affected !== 1 ? 's' : ''} logged out — including you`);
@@ -726,7 +726,7 @@ document.addEventListener('click', async e => {
       }
       else if (m._act === 'force-logout-user') {
         try {
-          const r = await fetch('/api/force-logout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ scope: 'user', userId: m._uid }) });
+          const r = await fetch('/api/account', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ action: 'force-logout', scope: 'user', userId: m._uid }) });
           const d = await r.json();
           if (!r.ok) throw new Error(d.error || 'Force logout failed');
           S.modal = null; showToast('User logged out ✓'); render();
@@ -734,7 +734,7 @@ document.addEventListener('click', async e => {
       }
       else if (m._act === 'clear-lockout') {
         try {
-          const r = await fetch('/api/clear-lockout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ userId: m._uid }) });
+          const r = await fetch('/api/account', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ action: 'clear-lockout', userId: m._uid }) });
           const d = await r.json();
           if (!r.ok) throw new Error(d.error || 'Failed to clear lockout');
           const u = S.users.find(x => x.id === m._uid); if (u) { u.lockedUntil = null; u.failedAttempts = 0; u.lockoutLevel = 0; }
@@ -859,7 +859,7 @@ document.addEventListener('click', async e => {
       if (newPass && newPass.length < 8) { showToast('New password must be at least 8 characters', 'error'); return; }
       S.modal = { ...m, busy: true }; render();
       try {
-        const r = await fetch('/api/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ currentPassword: currPass, newPassword: newPass || undefined, email: newEmail }) });
+        const r = await fetch('/api/account', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session-token': S.sessionToken || '' }, body: JSON.stringify({ action: 'change-password', currentPassword: currPass, newPassword: newPass || undefined, email: newEmail }) });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || `Failed (${r.status})`);
         S.sessionToken = d.token; S.user = d.user; persistSession(d.token, d.user);
@@ -1327,7 +1327,7 @@ document.addEventListener('drop', e => {
 });
 
 (async function init() {
-  // Coming back from Microsoft sign-in: api/auth-microsoft-callback.js
+  // Coming back from Microsoft sign-in: api/auth-microsoft.js's callback step
   // redirects to /?ssoTicket=... (success) or /?ssoError=<code> (denied /
   // failed). Handled before restoreSession() so it takes priority even if
   // an old/expired local session happens to still be sitting in
@@ -1340,7 +1340,7 @@ document.addEventListener('drop', e => {
 
   if (ssoTicket) {
     try {
-      const r = await fetch('/api/auth-microsoft-exchange', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: ssoTicket }) });
+      const r = await fetch('/api/auth-microsoft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ticket: ssoTicket }) });
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || 'Microsoft sign-in failed');
       await finishLogin(d);
