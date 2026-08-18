@@ -1,7 +1,7 @@
 const KOGNOZ_LOGO = "/kognoz_Iogo.png";
 let _bgRefreshTimer = null; // Phase 2 staleness-reduction poll, started on login, stopped on logout
 // ─── STATE ────────────────────────────────────────────────────────
-const S = { user: null, clients: [], archivedClients: [], users: [], usersForDropdown: [], shas: { clients: null, users: null }, sessionToken: null, view: 'login', params: {}, adminTab: 'integrations', filter: 'all', search: '', modal: null, toast: null, sidebarCollapsed: false, sidebarClientsOpen: false, sort: { key: 'name', dir: 'asc' }, editingTimelineId: null, expandedHistory: new Set(), amsFrom: '', amsTo: '', amsQuick: '', editingAmsEntryId: null, expandedAmsHistory: new Set(), selectedAmsEntryId: null, selectedIntegId: null, openExportMenu: null, cmdPaletteOpen: false, cmdQuery: '', cmdSelectedIdx: 0, recentlyViewed: [], darkMode: false, shortcutsHelpOpen: false, bulkImplMode: false, bulkImplCid: null, bulkSelected: new Set(), offlineMode: false, bulkIntegMode: false, bulkIntegCid: null, bulkIntegSelected: new Set(), dashAttnSort: { key: 'reason', dir: 'desc' }, dashClientSort: { key: 'name', dir: 'asc' }, dashAssigneeSort: { key: 'total', dir: 'desc' }, dashAssigneeSearch: '', dashAssigneeExpanded: new Set(), dashCapacityExpanded: new Set(), dashAssigneeFilter: 'all', dashCritSearch: '', dashCritFilter: 'all', adminSearch: '', auditRows: [], auditTotal: 0, auditPage: 0, auditPageSize: 50, auditFrom: '', auditTo: '', auditUser: '', auditSearch: '', auditLoading: false, auditLoaded: false, snapshotHistory: [], snapshotChecked: false, snapshotHistoryFetched: false, capacityWeights: { module: 1, pmo: 0.5, ams: 0.25, cap: 5 }, capacityWeightsFetched: false, pendingPath: null, authMessage: null, integRailFilter: '', integRailSort: 'name', integMineOnly: false, lastActiveMap: {}, lastActiveFetched: false, viewAsRole: null, bulkUserMode: false, bulkUserSelected: new Set(), pomodoro: null, pomodoroModePref: 'simple' };
+const S = { user: null, clients: [], archivedClients: [], users: [], usersForDropdown: [], shas: { clients: null, users: null }, sessionToken: null, view: 'login', params: {}, adminTab: 'integrations', filter: 'all', search: '', modal: null, toast: null, sidebarCollapsed: false, mobileSidebarOpen: false, sidebarClientsOpen: false, sort: { key: 'name', dir: 'asc' }, editingTimelineId: null, expandedHistory: new Set(), amsFrom: '', amsTo: '', amsQuick: '', editingAmsEntryId: null, expandedAmsHistory: new Set(), selectedAmsEntryId: null, selectedIntegId: null, openExportMenu: null, cmdPaletteOpen: false, cmdQuery: '', cmdSelectedIdx: 0, recentlyViewed: [], darkMode: false, shortcutsHelpOpen: false, bulkImplMode: false, bulkImplCid: null, bulkSelected: new Set(), offlineMode: false, bulkIntegMode: false, bulkIntegCid: null, bulkIntegSelected: new Set(), dashAttnSort: { key: 'reason', dir: 'desc' }, dashClientSort: { key: 'name', dir: 'asc' }, dashAssigneeSort: { key: 'total', dir: 'desc' }, dashAssigneeSearch: '', dashAssigneeExpanded: new Set(), dashCapacityExpanded: new Set(), dashAssigneeFilter: 'all', dashCritSearch: '', dashCritFilter: 'all', adminSearch: '', auditRows: [], auditTotal: 0, auditPage: 0, auditPageSize: 50, auditFrom: '', auditTo: '', auditUser: '', auditSearch: '', auditLoading: false, auditLoaded: false, snapshotHistory: [], snapshotChecked: false, snapshotHistoryFetched: false, capacityWeights: { module: 1, pmo: 0.5, ams: 0.25, cap: 5 }, capacityWeightsFetched: false, pendingPath: null, authMessage: null, integRailFilter: '', integRailSort: 'name', integMineOnly: false, lastActiveMap: {}, lastActiveFetched: false, viewAsRole: null, bulkUserMode: false, bulkUserSelected: new Set(), pomodoro: null, pomodoroModePref: 'simple' };
 
 try { S.sidebarCollapsed = localStorage.getItem('itk_sb_collapsed') === '1'; } catch (e) { }
 try { const r = localStorage.getItem('itk_recent'); if (r) S.recentlyViewed = JSON.parse(r); } catch (e) { }
@@ -220,7 +220,11 @@ function navigate(view, params = {}, opts = {}) {
     }
     render();
   };
-  if (isRealNav && document.startViewTransition) document.startViewTransition(go); else go();
+  if (isRealNav && document.startViewTransition && !opts.skipTransition) {
+    try { document.startViewTransition(go); } catch (e) { go(); }
+  } else {
+    go();
+  }
 }
 window.addEventListener('popstate', (e) => {
   if (!S.user) return; // not logged in — nothing meaningful to restore client-side
@@ -241,18 +245,19 @@ function staleBadge(i) { if (isOverdue(i) || !isStale(i, 7)) return ''; const lu
 // Urgency color for a Pending milestone, based on due-date proximity — Achieved/Missed
 // milestones don't call this, they keep their own fixed green/rose.
 function milestoneUrgencyColor(ms) { if (!ms.dueDate) return 'amber'; const d = daysDiff(ms.dueDate); if (d > 0) return 'rose'; if (d >= -3) return 'orange'; return 'amber'; }
-function healthColor(c) { const ar = c.integrations.filter(i => i.status === 'At Risk').length; const od = c.integrations.filter(isOverdue).length; if (ar > 0 || od > 0) return 'bg-rose-500'; const oh = c.integrations.filter(i => i.status === 'On Hold — Internal' || i.status === 'On Hold — Client').length; if (oh > 0) return 'bg-violet-400'; return 'bg-green-500'; }
+function healthColor(c) { const integs = c.integrations || []; const ar = integs.filter(i => i.status === 'At Risk').length; const od = integs.filter(isOverdue).length; if (ar > 0 || od > 0) return 'bg-rose-500'; const oh = integs.filter(i => i.status === 'On Hold — Internal' || i.status === 'On Hold — Client').length; if (oh > 0) return 'bg-violet-400'; return 'bg-green-500'; }
 function healthVar(c) { const cls = healthColor(c); if (cls === 'bg-rose-500') return 'var(--red)'; if (cls === 'bg-violet-400') return `#${VIOLET}`; return 'var(--green)'; }
 
 // Discrete Red/Amber/Green labels (not just CSS colors) — used by the
 // Portfolio Health Scorecard and snapshot capture to combine all three
 // domains into one glance per client.
 function integRagLabel(c) {
-  if (!c.integrations?.length) return null;
-  const ar = c.integrations.filter(i => i.status === 'At Risk').length;
-  const od = c.integrations.filter(isOverdue).length;
+  const integs = c.integrations || [];
+  if (!integs.length) return null;
+  const ar = integs.filter(i => i.status === 'At Risk').length;
+  const od = integs.filter(isOverdue).length;
   if (ar > 0 || od > 0) return 'Red';
-  const stale = c.integrations.filter(i => isStale(i, 7) && !isOverdue(i)).length;
+  const stale = integs.filter(i => isStale(i, 7) && !isOverdue(i)).length;
   if (stale > 0) return 'Amber';
   return 'Green';
 }
@@ -504,7 +509,7 @@ function clearBtnBusy(el) { if (!el) return; if (el.dataset._origHtml !== undefi
 // ─── API ──────────────────────────────────────────────────────────
 function forceReauth(msg) {
   clearInterval(_bgRefreshTimer); _bgRefreshTimer = null;
-  clearSession(); S.user = null; S.sessionToken = null; S.authMessage = msg;
+  clearSession(); S.user = null; S.sessionToken = null; S.authMessage = msg; S.view = 'login';
   render();
 }
 function authMessageFor(reason) {

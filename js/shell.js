@@ -105,11 +105,17 @@ function renderCmdPalette() {
   </div>`;
 }
 function renderAppSkeleton() {
-  return `<aside class="fixed inset-y-0 left-0 bg-white border-r border-gray-100 z-40 flex flex-col" style="width:15.5rem">
-    <div class="flex items-center px-4 h-16 border-b border-gray-100 shrink-0">${brandMark(true)}</div>
+  const isMobile = window.innerWidth < 768;
+  const collapsed = !isMobile && S.sidebarCollapsed;
+  const sbw = isMobile ? '0' : (collapsed ? '56px' : '232px');
+  const w = isMobile ? '240px' : sbw;
+  return `<aside class="k-sidebar fixed inset-y-0 left-0 z-40 flex flex-col" style="width:${w};transform:${isMobile ? 'translateX(-100%)' : 'translateX(0)'};">
+    <div class="k-side-header shrink-0 flex flex-col items-center justify-center ${collapsed ? 'px-1 py-3' : 'px-4 py-5'}" style="background:#ffffff;">
+      <img src="${KOGNOZ_LOGO}" alt="Kognoz" style="height:${collapsed ? '26px' : '40px'};width:auto;object-fit:contain;display:block;" />
+    </div>
     <div class="flex-1 px-2.5 py-4 space-y-2">${[1, 2, 3, 4].map(() => `<div class="skel rounded-xl h-9"></div>`).join('')}</div>
   </aside>
-  <main class="min-h-screen" style="margin-left:15.5rem">
+  <main class="min-h-screen" style="margin-left:${sbw}">
     <div class="max-w-7xl mx-auto px-6 py-7">
       <div class="skel rounded-lg h-7 w-48 mb-2"></div>
       <div class="skel rounded-lg h-4 w-72 mb-6"></div>
@@ -157,7 +163,8 @@ function renderBreadcrumb() {
 }
 function render() {
   const app = document.getElementById('app');
-  if (S.view === 'login') { app.innerHTML = renderLogin(); return; }
+  if (!app) return;
+  if (!S.user || S.view === 'login') { app.innerHTML = renderLogin(); return; }
   let content = '';
   if (S.view === 'dashboard') content = renderDashboard();
   else if (S.view === 'clients') content = renderClientDetail(S.params.clientId);
@@ -177,15 +184,15 @@ function render() {
   const viewingAs = S.user?.role === 'admin' && S.viewAsRole;
   const viewAsBanner = viewingAs ? `<div style="position:fixed;top:0;left:0;right:0;z-index:210;background:#7c3aed;color:#fff;font-size:12px;font-weight:600;text-align:center;padding:7px;letter-spacing:0.02em;">👁 Previewing as ${esc(S.viewAsRole)} — your real admin access is unchanged <button data-act="exit-view-as" style="margin-left:10px;background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:700;padding:2px 10px;border-radius:6px;cursor:pointer;">Exit Preview</button></div>` : '';
   const topOffset = viewingAs && S.offlineMode ? '30px' : '0';
-  app.innerHTML = `${viewAsBanner}${S.offlineMode ? `<div style="position:fixed;top:${topOffset};left:0;right:0;z-index:200;background:var(--red);color:#fff;font-size:12px;font-weight:500;text-align:center;padding:6px;letter-spacing:0.02em;">You appear to be offline — saves will fail until your connection is restored</div>` : ''}${renderSidebar()}<main class="min-h-screen" style="margin-left:${sbw};transition:margin-left 200ms ease;${S.offlineMode || viewingAs ? `padding-top:${(S.offlineMode ? 28 : 0) + (viewingAs ? 30 : 0)}px;` : ''}">${isMobile ? `<div style="position:fixed;top:12px;left:12px;z-index:50;"><button data-act="toggle-sidebar" class="k-btn k-btn-secondary" style="width:36px;height:36px;padding:0;box-shadow:var(--shadow);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button></div>` : ''}${renderBreadcrumb()}${content}</main>${S.modal ? renderModal() : ''}${S.cmdPaletteOpen ? renderCmdPalette() : ''}${S.shortcutsHelpOpen ? renderShortcutsHelp() : ''}${isMobile && !S.sidebarCollapsed ? `<div data-act="toggle-sidebar" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30;"></div>` : ''}`;
+  app.innerHTML = `${viewAsBanner}${S.offlineMode ? `<div style="position:fixed;top:${topOffset};left:0;right:0;z-index:200;background:var(--red);color:#fff;font-size:12px;font-weight:500;text-align:center;padding:6px;letter-spacing:0.02em;">You appear to be offline — saves will fail until your connection is restored</div>` : ''}${renderSidebar()}<main class="min-h-screen" style="margin-left:${sbw};transition:margin-left 200ms ease;${S.offlineMode || viewingAs ? `padding-top:${(S.offlineMode ? 28 : 0) + (viewingAs ? 30 : 0)}px;` : ''}">${isMobile ? `<div style="position:fixed;top:12px;left:12px;z-index:50;"><button data-act="toggle-sidebar" class="k-btn k-btn-secondary" style="width:36px;height:36px;padding:0;box-shadow:var(--shadow);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button></div>` : ''}${renderBreadcrumb()}${content}</main>${S.modal ? renderModal() : ''}${S.cmdPaletteOpen ? renderCmdPalette() : ''}${S.shortcutsHelpOpen ? renderShortcutsHelp() : ''}${isMobile && S.mobileSidebarOpen ? `<div data-act="toggle-sidebar" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30;"></div>` : ''}`;
 
 }
 
 function renderSidebar() {
-  const collapsed = S.sidebarCollapsed;
   const isMobile = window.innerWidth < 768;
-  const w = collapsed && !isMobile ? '56px' : '232px';
-  const hidden = isMobile && collapsed;
+  const collapsed = !isMobile && S.sidebarCollapsed;
+  const w = isMobile ? '240px' : (collapsed ? '56px' : '232px');
+  const hidden = isMobile && !S.mobileSidebarOpen;
   const isActive = v => {
     if (v === 'clients') return ['clients', 'client-detail', 'integ-detail'].includes(S.view);
     if (v === 'impl') return ['impl-clients', 'impl-client-detail', 'impl-phase-detail'].includes(S.view);

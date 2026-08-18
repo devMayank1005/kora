@@ -12,9 +12,10 @@ async function finishLogin(ld, errEl) {
   try {
     const cl = await apiRead('data/clients.json'); S.clients = cl.content; S.shas.clients = cl.sha;
   } catch (err) {
-    S.user = null; S.sessionToken = null; render();
+    S.user = null; S.sessionToken = null; S.view = 'login'; render();
     const msg = 'Loaded user but failed to load clients.';
-    if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } else { S.authMessage = msg; render(); }
+    const e2 = document.getElementById('lerr');
+    if (e2) { e2.textContent = msg; e2.classList.remove('hidden'); } else { S.authMessage = msg; render(); }
     return false;
   }
   try {
@@ -27,8 +28,9 @@ async function finishLogin(ld, errEl) {
   persistSession(S.sessionToken, S.user);
   const resumed = S.pendingPath ? pathToView(S.pendingPath) : null;
   S.pendingPath = null;
-  if (resumed && validateView(resumed.view, resumed.params || {})) navigate(resumed.view, resumed.params || {});
-  else navigate('dashboard');
+  const targetView = (resumed && validateView(resumed.view, resumed.params || {})) ? resumed.view : 'dashboard';
+  const targetParams = (resumed && validateView(resumed.view, resumed.params || {})) ? (resumed.params || {}) : {};
+  navigate(targetView, targetParams, { skipTransition: true });
   clearInterval(_bgRefreshTimer);
   _bgRefreshTimer = setInterval(backgroundRefreshClients, 60000);
   return true;
@@ -80,13 +82,22 @@ document.addEventListener('click', async e => {
     await finishLogin(ld, document.getElementById('lerr'));
     return;
   }
-  if (act === 'logout') { clearInterval(_bgRefreshTimer); _bgRefreshTimer = null; clearSession(); S.user = null; S.clients = []; S.users = []; S.usersForDropdown = []; S.shas = { clients: null, users: null }; S.sessionToken = null; S.viewAsRole = null; S.lastActiveMap = {}; S.lastActiveFetched = false; S.bulkUserMode = false; S.bulkUserSelected = new Set(); navigate('login'); return; }
-  if (act === 'nav-dashboard') { navigate('dashboard'); return; }
-  if (act === 'nav-clients') { navigate('clients'); return; }
-  if (act === 'nav-impl') { navigate('impl-clients'); return; }
-  if (act === 'nav-ams') { navigate('ams-clients'); return; }
-  if (act === 'nav-admin') { if (can('admin')) navigate('admin'); return; }
-  if (act === 'toggle-sidebar') { S.sidebarCollapsed = !S.sidebarCollapsed; try { localStorage.setItem('itk_sb_collapsed', S.sidebarCollapsed ? '1' : '0'); } catch (e) { } render(); return; }
+  if (act === 'logout') { clearInterval(_bgRefreshTimer); _bgRefreshTimer = null; clearSession(); S.user = null; S.clients = []; S.users = []; S.usersForDropdown = []; S.shas = { clients: null, users: null }; S.sessionToken = null; S.viewAsRole = null; S.lastActiveMap = {}; S.lastActiveFetched = false; S.bulkUserMode = false; S.bulkUserSelected = new Set(); navigate('login', {}, { skipTransition: true }); return; }
+  if (act === 'nav-dashboard') { S.mobileSidebarOpen = false; navigate('dashboard'); return; }
+  if (act === 'nav-clients') { S.mobileSidebarOpen = false; navigate('clients'); return; }
+  if (act === 'nav-impl') { S.mobileSidebarOpen = false; navigate('impl-clients'); return; }
+  if (act === 'nav-ams') { S.mobileSidebarOpen = false; navigate('ams-clients'); return; }
+  if (act === 'nav-admin') { if (can('admin')) { S.mobileSidebarOpen = false; navigate('admin'); } return; }
+  if (act === 'toggle-sidebar') {
+    if (window.innerWidth < 768) {
+      S.mobileSidebarOpen = !S.mobileSidebarOpen;
+    } else {
+      S.sidebarCollapsed = !S.sidebarCollapsed;
+      try { localStorage.setItem('itk_sb_collapsed', S.sidebarCollapsed ? '1' : '0'); } catch (e) { }
+    }
+    render();
+    return;
+  }
   if (act === 'toggle-dark') { S.darkMode = !S.darkMode; document.documentElement.classList.toggle('dark', S.darkMode); try { localStorage.setItem('itk_dark', S.darkMode ? '1' : '0'); } catch (e) { } render(); return; }
   if (act === 'toggle-pwd') {
     const input = document.getElementById(el.dataset.target);
@@ -449,7 +460,7 @@ document.addEventListener('click', async e => {
     return;
   }
   if (act === 'download-user-template') {
-    const csv = 'username,full_name,role,email,password\npriya.s,Priya S,editor,priya@kognoz.in,Kognoz@123\nrahul.m,Rahul M,editor,rahul@kognoz.in,Kognoz@123\n';
+    const csv = 'username,full_name,role,email,password\nuser.one,User One,editor,user1@example.com,temp_pass_1\nuser.two,User Two,editor,user2@example.com,temp_pass_2\n';
     const a = document.createElement('a'); a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv); a.download = 'integtrack_users_template.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
     return;
   }
@@ -1368,17 +1379,17 @@ document.addEventListener('drop', e => {
       try { const ul = await apiRead('data/users.json'); S.usersForDropdown = ul.content.map(u => ({ id: u.id, name: u.name || u.username, role: u.role, username: u.username })); if (can('admin')) { S.users = ul.content; S.shas.users = ul.sha; } }
       catch (e) { S.usersForDropdown = [{ id: S.user.id, name: S.user.name || S.user.username, role: S.user.role, username: S.user.username }]; }
       const fromUrl = location.pathname && location.pathname !== '/' ? pathToView(location.pathname) : null;
-      if (fromUrl && validateView(fromUrl.view, fromUrl.params || {})) { navigate(fromUrl.view, fromUrl.params || {}, { fromPopState: true }); history.replaceState({ view: fromUrl.view, params: fromUrl.params }, '', viewToPath(fromUrl.view, fromUrl.params)); }
+      if (fromUrl && validateView(fromUrl.view, fromUrl.params || {})) { navigate(fromUrl.view, fromUrl.params || {}, { fromPopState: true, skipTransition: true }); history.replaceState({ view: fromUrl.view, params: fromUrl.params }, '', viewToPath(fromUrl.view, fromUrl.params)); }
       else {
         const rv = restoreView();
-        if (rv && rv.view && validateView(rv.view, rv.params || {})) { navigate(rv.view, rv.params || {}); }
-        else { navigate('dashboard'); }
+        if (rv && rv.view && validateView(rv.view, rv.params || {})) { navigate(rv.view, rv.params || {}, { skipTransition: true }); }
+        else { navigate('dashboard', {}, { skipTransition: true }); }
       }
       clearInterval(_bgRefreshTimer);
       _bgRefreshTimer = setInterval(backgroundRefreshClients, 60000);
     } catch (e) {
       clearInterval(_bgRefreshTimer); _bgRefreshTimer = null;
-      clearSession(); S.user = null; S.sessionToken = null; render();
+      clearSession(); S.user = null; S.sessionToken = null; S.view = 'login'; render();
     }
   } else {
     if (location.pathname && location.pathname !== '/' && location.pathname !== '/login') S.pendingPath = location.pathname;

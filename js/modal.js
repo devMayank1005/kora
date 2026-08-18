@@ -75,7 +75,7 @@ function renderModal() {
         </div>
       </div>
       <div><label class="block text-xs font-medium text-gray-500 mb-1">Application URL *</label><input id="sw-url" type="url" value="${esc(window?.location?.origin || 'https://your-app.vercel.app')}" placeholder="https://your-app.vercel.app" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">Password to send & set *</label><input id="sw-pass" type="text" placeholder="e.g. Kognoz@123" autocomplete="off" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">Password to send & set *</label><input id="sw-pass" type="text" placeholder="Temporary password (min 8 chars)" autocomplete="off" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/>
       <p class="text-xs text-gray-400 mt-1">This becomes their login password immediately. Tell them to change it after first login via My Profile.</p></div>
     </div>`;
   } else if (m.type === 'edit-user') {
@@ -97,7 +97,7 @@ function renderModal() {
         <p class="text-xs text-gray-500">Paste CSV or use the template. One user per row.</p>
         <button data-act="download-user-template" class="text-xs text-[#0e7490] font-semibold hover:underline">⬇ Download Template</button>
       </div>
-      <textarea id="bulk-csv" rows="8" placeholder="username,full_name,role,email,password&#10;yashwanth.k,Yashwanth K,admin,yashwanth@kognoz.in,Kognoz@123&#10;priya.s,Priya S,editor,priya@kognoz.in,Kognoz@123" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(m.csvText || '')}</textarea>
+      <textarea id="bulk-csv" rows="8" placeholder="username,full_name,role,email,password&#10;user.one,User One,admin,user1@example.com,temp_pass_1&#10;user.two,User Two,editor,user2@example.com,temp_pass_2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#0e7490] resize-none">${esc(m.csvText || '')}</textarea>
       <button data-act="preview-users-csv" class="w-full text-sm font-medium bg-gray-50 hover:bg-[#0e7490]/10 hover:text-[#0e7490] text-gray-700 border border-gray-200 rounded-xl py-2 transition">Preview Rows</button>
       ${rows.length ? `<div class="text-xs font-semibold text-gray-700 mt-1">${rows.length} rows parsed · <span class="text-green-600">${valid.length} valid</span>${errors.length ? ` · <span class="text-rose-600">${errors.length} errors</span>` : ''}
       </div>

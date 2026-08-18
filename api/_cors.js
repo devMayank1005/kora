@@ -12,6 +12,8 @@
 const ALLOWED_ORIGINS = [
   'https://kora-eight-black.vercel.app',
   'https://integration-tracker-delta.vercel.app',
+  'http://localhost:3002',
+
 ];
 
 function applyCors(req, res, methods) {

@@ -4,7 +4,7 @@ function renderDashboard() {
   fetchSnapshotHistory(14);
   fetchCapacityWeights();
 
-  const all = S.clients.flatMap(c => c.integrations.map(i => ({ ...i, clientName: c.name, clientId: c.id })));
+  const all = S.clients.flatMap(c => (c.integrations || []).map(i => ({ ...i, clientName: c.name, clientId: c.id })));
   const ti = all.length;
   const ar = all.filter(i => i.status === 'At Risk').length;
   const ip = all.filter(i => i.status === 'In Progress').length;

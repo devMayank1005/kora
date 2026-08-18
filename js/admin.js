@@ -112,12 +112,12 @@ function renderAdminAms(){
 }
 
 function renderAdminClients(){
-  const scoped=S.clients.filter(c=>c.integrations.length>0||(c.modules===undefined&&c.workLog===undefined));
+  const scoped=S.clients.filter(c=>(c.integrations||[]).length>0||(c.modules===undefined&&c.workLog===undefined));
   const q=S.adminSearch.toLowerCase();
   const filtered=q?scoped.filter(c=>c.name.toLowerCase().includes(q)):scoped;
-  const totalInteg=scoped.reduce((a,c)=>a+c.integrations.length,0);
-  const totalAtRisk=scoped.reduce((a,c)=>a+c.integrations.filter(i=>i.status==='At Risk').length,0);
-  const totalCompleted=scoped.reduce((a,c)=>a+c.integrations.filter(i=>i.status==='Completed').length,0);
+  const totalInteg=scoped.reduce((a,c)=>a+(c.integrations||[]).length,0);
+  const totalAtRisk=scoped.reduce((a,c)=>a+(c.integrations||[]).filter(i=>i.status==='At Risk').length,0);
+  const totalCompleted=scoped.reduce((a,c)=>a+(c.integrations||[]).filter(i=>i.status==='Completed').length,0);
   return`<div>
   <div class="k-card mb-5" style="padding:18px 0;">
     <div class="k-metric-row" style="grid-template-columns:repeat(4,1fr);">
@@ -141,11 +141,11 @@ function renderAdminClients(){
       </tr></thead>
       <tbody class="divide-y divide-gray-50">
         ${filtered.length?filtered.map(c=>{
-          const ar=c.integrations.filter(i=>i.status==='At Risk').length;
-          const co=c.integrations.filter(i=>i.status==='Completed').length;
+          const ar=(c.integrations||[]).filter(i=>i.status==='At Risk').length;
+          const co=(c.integrations||[]).filter(i=>i.status==='Completed').length;
           return`<tr class="hover:bg-gray-50/50 transition">
           <td class="px-4 py-3"><div class="font-medium text-gray-900" title="${esc(c.name)}">${esc(c.name)}</div>${c.description?`<div class="text-xs text-gray-400 truncate max-w-[180px]" title="${esc(c.description)}">${esc(c.description)}</div>`:''}</td>
-          <td class="px-4 py-3 font-semibold text-gray-700">${c.integrations.length}</td>
+          <td class="px-4 py-3 font-semibold text-gray-700">${(c.integrations||[]).length}</td>
           <td class="px-4 py-3">${ar>0?`<span class="k-badge" style="color:var(--red);border-color:var(--red);background:var(--red-hi);">${ar}</span>`:`<span class="text-gray-300 text-xs">—</span>`}</td>
           <td class="px-4 py-3">${co>0?`<span class="k-badge" style="color:var(--green);border-color:var(--green);background:var(--green-hi);">${co}</span>`:`<span class="text-gray-300 text-xs">—</span>`}</td>
           <td class="px-4 py-3">
