@@ -619,6 +619,20 @@ document.addEventListener('click', async e => {
     S.modal = { type: 'edit-ams-client', cid: c.id, description: c.description, manDayRate: c.manDayRate, totalAvailableHours: c.totalAvailableHours, currency: c.currency || 'INR' }; render(); return;
   }
   if (act === 'exec-undo') { execUndo(); return; }
+  if (act === 'ams-month-prev' || act === 'ams-month-next') {
+    let base = S.amsFrom ? new Date(S.amsFrom + 'T00:00:00') : new Date();
+    if (isNaN(base.getTime())) base = new Date();
+    const step = act === 'ams-month-next' ? 1 : -1;
+    const target = new Date(base.getFullYear(), base.getMonth() + step, 1);
+    const y = target.getFullYear();
+    const m = target.getMonth();
+    const lastDay = new Date(y, m + 1, 0).getDate();
+    S.amsFrom = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+    S.amsTo = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    S.amsQuick = '';
+    render();
+    return;
+  }
   if (act === 'ams-quick') {
     const range = el.dataset.range; S.amsQuick = range;
     const now = new Date(); const y = now.getFullYear(), m = now.getMonth();

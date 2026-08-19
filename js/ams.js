@@ -121,18 +121,27 @@ function renderAmsClientDetail(clientId) {
       <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${t.consumedAllTime.toFixed(1)}</div><div class="text-xs text-gray-500">Consumed (all-time)</div></div>
       <div class="${t.balanceAvailable > 0 ? 'bg-green-50' : 'bg-rose-50'} rounded-xl p-4"><div class="text-2xl font-bold ${t.balanceAvailable > 0 ? 'text-green-600' : 'text-rose-600'}">${t.balanceAvailable.toFixed(1)}</div><div class="text-xs text-gray-500">Balance Available</div></div>
     </div>`: ''}
-    <div class="flex flex-wrap items-end gap-3 mb-4">
-      <div><label class="block text-xs text-gray-400 mb-1">From</label><input id="ams-from" data-act="ams-range" type="date" value="${esc(S.amsFrom)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <div><label class="block text-xs text-gray-400 mb-1">To</label><input id="ams-to" data-act="ams-range" type="date" value="${esc(S.amsTo)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <div class="flex gap-1.5 items-end pb-0.5">
-        ${[['This Month', 'this-month'], ['Last Month', 'last-month'], ['This Quarter', 'this-quarter'], ['All Time', 'all-time']].map(([l, k]) => `<button data-act="ams-quick" data-range="${k}" class="text-xs px-2.5 py-2 rounded-lg border transition ${S.amsQuick === k ? 'bg-[#0e7490] text-white border-[#0e7490]' : 'border-gray-200 text-gray-500 hover:border-[#0e7490] hover:text-[#0e7490]'}">${l}</button>`).join('')}
+    <div class="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50/70 border border-gray-100 rounded-xl">
+      <div class="flex items-center gap-2">
+        <div><label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">From</label><input id="ams-from" data-act="ams-range" type="date" value="${esc(S.amsFrom)}" class="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+        <div><label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">To</label><input id="ams-to" data-act="ams-range" type="date" value="${esc(S.amsTo)}" class="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
       </div>
-      ${exportMenuButton(`ams-${c.id}`, [
-    { label: '📋 Activity Report (PDF)', act: 'exp-ams-activity', data: { cid: c.id } },
-    { label: '🧾 Invoice / Billing (PDF)', act: 'exp-ams-invoice', data: { cid: c.id } },
-    { label: '📊 Excel', act: 'exp-excel', data: { etype: 'ams', cid: c.id } },
-    { label: '⬆ Import (CSV)', act: 'open-import-ams', data: { cid: c.id } },
-  ])}
+      <div class="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
+        <button data-act="ams-month-prev" class="px-2 py-1 text-xs text-gray-600 hover:text-[#0e7490] hover:bg-gray-50 rounded transition" title="Previous Month">◀</button>
+        <span class="px-2 text-xs font-semibold text-gray-700 min-w-[70px] text-center">${S.amsFrom ? new Date(S.amsFrom + 'T00:00:00').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'All Dates'}</span>
+        <button data-act="ams-month-next" class="px-2 py-1 text-xs text-gray-600 hover:text-[#0e7490] hover:bg-gray-50 rounded transition" title="Next Month">▶</button>
+      </div>
+      <div class="flex gap-1.5 items-center flex-wrap">
+        ${[['This Month', 'this-month'], ['Last Month', 'last-month'], ['This Quarter', 'this-quarter'], ['All Time', 'all-time']].map(([l, k]) => `<button data-act="ams-quick" data-range="${k}" class="text-xs px-2.5 py-1.5 rounded-lg border transition ${S.amsQuick === k ? 'bg-[#0e7490] text-white border-[#0e7490]' : 'border-gray-200 text-gray-500 hover:border-[#0e7490] hover:text-[#0e7490] bg-white'}">${l}</button>`).join('')}
+      </div>
+      <div class="ml-auto">
+        ${exportMenuButton(`ams-${c.id}`, [
+          { label: '📋 Activity Report (PDF)', act: 'exp-ams-activity', data: { cid: c.id } },
+          { label: '🧾 Invoice / Billing (PDF)', act: 'exp-ams-invoice', data: { cid: c.id } },
+          { label: '📊 Excel', act: 'exp-excel', data: { etype: 'ams', cid: c.id } },
+          { label: '⬆ Import (CSV)', act: 'open-import-ams', data: { cid: c.id } },
+        ])}
+      </div>
     </div>
     <div class="grid grid-cols-3 gap-4 mb-4">
       <div class="bg-gray-50 rounded-xl p-4"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Hours This Period${t.hasBucket ? ` (${t.coveredHours.toFixed(1)} covered)` : ''}</div></div>
@@ -143,14 +152,26 @@ function renderAmsClientDetail(clientId) {
       ${Object.entries(t.byType).map(([tp, hrs]) => `<span class="text-xs bg-gray-50 border border-gray-200 rounded-full px-3 py-1 text-gray-600">${esc(tp)}: ${hrs.toFixed(1)}h</span>`).join('') || '<span class="text-xs text-gray-400">No entries in this range</span>'}
     </div>
   </div>`: can('admin') && !t.hasRate ? `<div class="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-    <div class="flex flex-wrap items-end gap-3 mb-4">
-      <div><label class="block text-xs text-gray-400 mb-1">From</label><input id="ams-from" data-act="ams-range" type="date" value="${esc(S.amsFrom)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      <div><label class="block text-xs text-gray-400 mb-1">To</label><input id="ams-to" data-act="ams-range" type="date" value="${esc(S.amsTo)}" class="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
-      ${exportMenuButton(`ams-${c.id}`, [
-    { label: '📋 Activity Report (PDF)', act: 'exp-ams-activity', data: { cid: c.id } },
-    { label: '📊 Excel', act: 'exp-excel', data: { etype: 'ams', cid: c.id } },
-    { label: '⬆ Import (CSV)', act: 'open-import-ams', data: { cid: c.id } },
-  ])}
+    <div class="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50/70 border border-gray-100 rounded-xl">
+      <div class="flex items-center gap-2">
+        <div><label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">From</label><input id="ams-from" data-act="ams-range" type="date" value="${esc(S.amsFrom)}" class="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+        <div><label class="block text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1">To</label><input id="ams-to" data-act="ams-range" type="date" value="${esc(S.amsTo)}" class="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490]"/></div>
+      </div>
+      <div class="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-0.5">
+        <button data-act="ams-month-prev" class="px-2 py-1 text-xs text-gray-600 hover:text-[#0e7490] hover:bg-gray-50 rounded transition" title="Previous Month">◀</button>
+        <span class="px-2 text-xs font-semibold text-gray-700 min-w-[70px] text-center">${S.amsFrom ? new Date(S.amsFrom + 'T00:00:00').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'All Dates'}</span>
+        <button data-act="ams-month-next" class="px-2 py-1 text-xs text-gray-600 hover:text-[#0e7490] hover:bg-gray-50 rounded transition" title="Next Month">▶</button>
+      </div>
+      <div class="flex gap-1.5 items-center flex-wrap">
+        ${[['This Month', 'this-month'], ['Last Month', 'last-month'], ['This Quarter', 'this-quarter'], ['All Time', 'all-time']].map(([l, k]) => `<button data-act="ams-quick" data-range="${k}" class="text-xs px-2.5 py-1.5 rounded-lg border transition ${S.amsQuick === k ? 'bg-[#0e7490] text-white border-[#0e7490]' : 'border-gray-200 text-gray-500 hover:border-[#0e7490] hover:text-[#0e7490] bg-white'}">${l}</button>`).join('')}
+      </div>
+      <div class="ml-auto">
+        ${exportMenuButton(`ams-${c.id}`, [
+          { label: '📋 Activity Report (PDF)', act: 'exp-ams-activity', data: { cid: c.id } },
+          { label: '📊 Excel', act: 'exp-excel', data: { etype: 'ams', cid: c.id } },
+          { label: '⬆ Import (CSV)', act: 'open-import-ams', data: { cid: c.id } },
+        ])}
+      </div>
     </div>
     <div class="bg-gray-50 rounded-xl p-4 inline-block"><div class="text-2xl font-bold text-gray-700">${t.totalHours.toFixed(1)}</div><div class="text-xs text-gray-500">Total Hours (Retainer)</div></div>
   </div>`: ''}
@@ -209,8 +230,8 @@ function renderAmsClientDetail(clientId) {
     })()}
 </div>`;
 
-  return `<div class="fade" style="padding:20px 28px 36px;">
-  <div class="grid gap-5" style="grid-template-columns:280px minmax(0,1fr);align-items:start;">
+  return `<div class="fade" style="padding:20px 20px 36px;max-width:1440px;margin:0 auto;box-sizing:border-box;">
+  <div class="k-master-detail-grid">
     ${clientRail}
     <div style="min-width:0;">${detailPanel}</div>
   </div>

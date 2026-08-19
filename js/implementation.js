@@ -137,8 +137,8 @@ function renderImplClientDetail(clientId) {
   <div class="h-20"></div>`: ''}
 </div>`;
 
-  return `<div class="fade" style="padding:20px 28px 36px;">
-  <div class="grid gap-5" style="grid-template-columns:280px minmax(0,1fr);align-items:start;">
+  return `<div class="fade" style="padding:20px 20px 36px;max-width:1440px;margin:0 auto;box-sizing:border-box;">
+  <div class="k-master-detail-grid">
     ${clientRail}
     <div style="min-width:0;">${detailPanel}</div>
   </div>

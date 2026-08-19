@@ -42,8 +42,10 @@ function signToken(payload, secret) {
 // the Supabase connection details passed in.
 async function validateToken(token, secret, supabaseUrl, supabaseKey) {
   let payload;
+  const effectiveSecret = secret || process.env.INTEGTRACK_SECRET;
+  if (!effectiveSecret) return { valid: false, reason: 'missing_secret' };
   try {
-    payload = verifySignature(token, secret);
+    payload = verifySignature(token, effectiveSecret);
   } catch (err) {
     // Backstop only — verifySignature should never throw after the M-4 fix,
     // but a caller passing garbage here must still fail closed, not crash.

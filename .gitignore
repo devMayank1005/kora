@@ -8,3 +8,5 @@ node_modules/
 Thumbs.db
 graphify-out/
 .env*
+PROJECT_DEEP_DIVE.md
+CLAUDE.md

@@ -154,7 +154,7 @@ function renderBreadcrumb() {
   } else if (S.view === 'admin') {
     crumbs.push({ label: 'Admin' });
   }
-  return `<div class="k-crumbs" style="padding:16px 24px 0;">${crumbs.map((cr, idx) => {
+  return `<div class="k-crumbs">${crumbs.map((cr, idx) => {
     const isLast = idx === crumbs.length - 1;
     const sep = idx > 0 ? '<span style="margin:0 6px;color:var(--mute-2);">/</span>' : '';
     if (isLast || !cr.act) return `${sep}<span style="color:var(--ink-3);font-weight:500;">${esc(cr.label)}</span>`;
@@ -182,7 +182,7 @@ function render() {
   // can()-gated content) so an admin previewing a lower role always has a
   // visible way back out, even from a page that role can't otherwise see.
   const viewingAs = S.user?.role === 'admin' && S.viewAsRole;
-  const viewAsBanner = viewingAs ? `<div style="position:fixed;top:0;left:0;right:0;z-index:210;background:#7c3aed;color:#fff;font-size:12px;font-weight:600;text-align:center;padding:7px;letter-spacing:0.02em;">👁 Previewing as ${esc(S.viewAsRole)} — your real admin access is unchanged <button data-act="exit-view-as" style="margin-left:10px;background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:700;padding:2px 10px;border-radius:6px;cursor:pointer;">Exit Preview</button></div>` : '';
+  const viewAsBanner = viewingAs ? `<div style="position:fixed;top:0;left:0;right:0;z-index:210;background:#7c3aed;color:#fff;font-size:12px;font-weight:600;text-align:center;padding:7px 12px;letter-spacing:0.02em;display:flex;align-items:center;justify-content:center;box-sizing:border-box;">👁 Previewing as ${esc(S.viewAsRole)} — your real admin access is unchanged <button data-act="exit-view-as" style="margin-left:10px;background:rgba(255,255,255,.2);border:none;color:#fff;font-weight:700;padding:2px 10px;border-radius:6px;cursor:pointer;">Exit Preview</button></div>` : '';
   const topOffset = viewingAs && S.offlineMode ? '30px' : '0';
   app.innerHTML = `${viewAsBanner}${S.offlineMode ? `<div style="position:fixed;top:${topOffset};left:0;right:0;z-index:200;background:var(--red);color:#fff;font-size:12px;font-weight:500;text-align:center;padding:6px;letter-spacing:0.02em;">You appear to be offline — saves will fail until your connection is restored</div>` : ''}${renderSidebar()}<main class="min-h-screen" style="margin-left:${sbw};transition:margin-left 200ms ease;${S.offlineMode || viewingAs ? `padding-top:${(S.offlineMode ? 28 : 0) + (viewingAs ? 30 : 0)}px;` : ''}">${isMobile ? `<div style="position:fixed;top:12px;left:12px;z-index:50;"><button data-act="toggle-sidebar" class="k-btn k-btn-secondary" style="width:36px;height:36px;padding:0;box-shadow:var(--shadow);"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg></button></div>` : ''}${renderBreadcrumb()}${content}</main>${S.modal ? renderModal() : ''}${S.cmdPaletteOpen ? renderCmdPalette() : ''}${S.shortcutsHelpOpen ? renderShortcutsHelp() : ''}${isMobile && S.mobileSidebarOpen ? `<div data-act="toggle-sidebar" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:30;"></div>` : ''}`;
 

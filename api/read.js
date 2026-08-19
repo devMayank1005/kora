@@ -36,7 +36,9 @@ module.exports = async function handler(req, res) {
         `${SUPABASE_URL}/rest/v1/clients?select=*&order=name.asc`,
         { headers: sbHeaders }
       );
-      if (!r.ok) return res.status(r.status).json({ error: 'Supabase read error' });
+      if (!r.ok) {
+        return res.status(500).json({ error: 'Failed to read clients' });
+      }
       const rows = await r.json();
 
       // Reconstruct client objects matching old format exactly
@@ -62,7 +64,9 @@ module.exports = async function handler(req, res) {
       // Every attachment.url in phase updates was signed with a fresh,
       // short-lived URL at whatever time it was last read/saved — regenerate
       // fresh ones now so nothing served to the client is ever expired.
-      await refreshAttachmentUrls(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clients);
+      if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+        await refreshAttachmentUrls(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, clients);
+      }
 
       const content = Buffer.from(JSON.stringify(clients)).toString('base64');
       return res.status(200).json({ content, sha: 'supabase' });
@@ -73,15 +77,11 @@ module.exports = async function handler(req, res) {
         `${SUPABASE_URL}/rest/v1/users?select=*&order=username.asc`,
         { headers: sbHeaders }
       );
-      if (!r.ok) return res.status(r.status).json({ error: 'Supabase read error' });
+      if (!r.ok) {
+        return res.status(500).json({ error: 'Failed to read users' });
+      }
       const rows = await r.json();
 
-      // M-3 fix (security audit): previously included passwordHash so an
-      // admin's browser could pass it back unchanged on save. That's no
-      // longer needed — write.js now looks up the existing hash server-side
-      // by id whenever a user record has no new plaintext password. This
-      // means a bcrypt hash is never present in a browser's memory at all,
-      // closing off "steal an admin session via XSS, harvest every hash".
       const isAdmin = check.payload.role === 'admin';
       const users = rows.map(row => isAdmin ? {
         id: row.id,

@@ -188,8 +188,8 @@ function renderClientDetail(clientId) {
   // min-width:auto, which refuses to shrink below its content's natural
   // width; without this override, the inner 5-col list+detail grid could
   // force the whole page wider than the viewport instead of wrapping/shrinking.
-  return `<div class="fade" style="padding:20px 28px 36px;">
-  <div class="grid gap-5" style="grid-template-columns:280px minmax(0,1fr);align-items:start;">
+  return `<div class="fade" style="padding:20px 20px 36px;max-width:1440px;margin:0 auto;box-sizing:border-box;">
+  <div class="k-master-detail-grid">
     ${clientRail}
     <div style="min-width:0;">${listAndDetail}</div>
   </div>
