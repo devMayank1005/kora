@@ -112,6 +112,11 @@ function renderClientDetail(clientId) {
   </div>`: ''}
   ${(() => {
       const bulkOn = S.bulkIntegMode && S.bulkIntegCid === c.id;
+      if (!sorted.length) return `<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('search')}No integrations match this filter</div>`;
+      const selId = S.selectedIntegId && sorted.some(i => i.id === S.selectedIntegId) ? S.selectedIntegId : sorted[0].id;
+      const sel = sorted.find(i => i.id === selId);
+      if (!sel) return `<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('search')}No integration selected</div>`;
+      const lu = lastUpdateDate(sel);
       const selTimeline = sel.timeline || [];
       const selMilestones = sel.milestones || [];
       return `<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-12${bulkOn ? ' ring-2 ring-rose-300' : ''}" style="min-height:460px;">

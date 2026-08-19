@@ -179,6 +179,7 @@ function renderAmsClientDetail(clientId) {
       if (!sorted.length) return `<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('hours')}No entries yet. Add one to get started.</div>`;
       const selId = S.selectedAmsEntryId && sorted.some(e => e.id === S.selectedAmsEntryId) ? S.selectedAmsEntryId : sorted[0].id;
       const sel = sorted.find(e => e.id === selId);
+      if (!sel) return `<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('hours')}No entry selected</div>`;
       const isOverdue = e => e.dueDate && e.dueDate < todayStr() && (e.entryStatus || 'Open') !== 'Closed';
       const isExpanded = S.expandedAmsHistory.has(sel.id);
       const hasHistory = sel.edits && sel.edits.length > 0;
