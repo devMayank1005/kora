@@ -182,55 +182,119 @@ function renderAmsClientDetail(clientId) {
       const isOverdue = e => e.dueDate && e.dueDate < todayStr() && (e.entryStatus || 'Open') !== 'Closed';
       const isExpanded = S.expandedAmsHistory.has(sel.id);
       const hasHistory = sel.edits && sel.edits.length > 0;
-      const detailRow = (label, value, extraCls) => `<div><span class="text-xs text-gray-400">${label}</span><div class="text-sm text-gray-700 font-medium ${extraCls || ''}">${value}</div></div>`;
-      return `<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-5" style="min-height:420px;">
-    <div class="col-span-2 border-r border-gray-100 overflow-y-auto" style="max-height:640px;">
-      <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wide sticky top-0">${sorted.length} entr${sorted.length !== 1 ? 'ies' : 'y'}</div>
+      return `<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-12" style="min-height:460px;">
+    <div class="col-span-5 lg:col-span-4 border-r border-gray-100 overflow-y-auto" style="max-height:680px;">
+      <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wide sticky top-0 flex items-center justify-between">
+        <span>${sorted.length} entr${sorted.length !== 1 ? 'ies' : 'y'}</span>
+      </div>
       ${sorted.map(e => {
         const active = e.id === selId;
-        return `<div data-act="select-ams-entry" data-eid="${e.id}" class="px-3 py-2.5 border-b border-gray-50 cursor-pointer transition ${active ? 'bg-[#0e7490]/5 border-l-2 border-l-[#0e7490]' : 'border-l-2 border-l-transparent hover:bg-gray-50'}">
-          <div class="flex justify-between items-baseline gap-2">
-            <span class="text-xs font-medium text-gray-900 truncate">${esc(e.module || e.project || 'Untitled')}</span>
-            <span class="text-xs shrink-0 ${isOverdue(e) ? 'text-rose-600 font-semibold' : 'text-gray-400'}">${fmtDate(entryDate(e))}</span>
+        return `<div data-act="select-ams-entry" data-eid="${e.id}" class="px-3 py-2.5 border-b border-gray-50 cursor-pointer transition flex items-start gap-2 ${active ? 'bg-[#0e7490]/5 border-l-2 border-l-[#0e7490]' : 'border-l-2 border-l-transparent hover:bg-gray-50'}">
+          <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-baseline gap-2">
+              <span class="text-xs font-medium text-gray-900 truncate">${esc(e.module || e.project || 'Untitled')}</span>
+              <span class="text-xs shrink-0 ${isOverdue(e) ? 'text-rose-600 font-semibold' : 'text-gray-400'}">${fmtDate(entryDate(e))}</span>
+            </div>
+            <div class="text-xs text-gray-500 truncate mt-0.5">${esc(e.description || '—')}</div>
+            <div class="flex gap-1.5 mt-1.5 flex-wrap">${amsStatusBadge(e.entryStatus || 'Open')}${e.ragStatus ? `<span class="scale-90 origin-left">${ragBadge(e.ragStatus)}</span>` : ''}</div>
           </div>
-          <div class="text-xs text-gray-500 truncate mt-0.5">${esc(e.description || '—')}</div>
-          <div class="flex gap-1.5 mt-1.5">${amsStatusBadge(e.entryStatus || 'Open')}${e.ragStatus ? `<span class="scale-90 origin-left">${ragBadge(e.ragStatus)}</span>` : ''}</div>
         </div>`;
       }).join('')}
     </div>
-    <div class="col-span-3 p-5 overflow-y-auto" style="max-height:640px;">
-      <div class="flex items-center justify-between mb-4">
-        <div class="flex items-center gap-2 flex-wrap">
-          <span class="bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-600">${esc(entryType(sel))}</span>
-          ${amsStatusBadge(sel.entryStatus || 'Open')}
-          ${sel.ragStatus ? ragBadge(sel.ragStatus) : ''}
+    <div class="col-span-7 lg:col-span-8 p-6 overflow-y-auto flex flex-col justify-between" style="max-height:680px;">
+      <div class="space-y-4">
+        <!-- Top Toolbar -->
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100 flex-wrap gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 text-xs text-gray-600 font-medium">${esc(entryType(sel))}</span>
+            ${amsStatusBadge(sel.entryStatus || 'Open')}
+            ${sel.ragStatus ? ragBadge(sel.ragStatus) : ''}
+            ${sel.queryLevel ? `<span class="text-xs px-2 py-0.5 rounded-full border ${sel.queryLevel.includes('L4') ? 'bg-rose-50 border-rose-200 text-rose-700' : sel.queryLevel.includes('L3') ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-gray-50 border-gray-200 text-gray-600'} font-medium">${esc(sel.queryLevel)}</span>` : ''}
+          </div>
+          ${can('editor') ? `<div class="flex gap-2 shrink-0">
+            <button data-act="edit-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-semibold text-white bg-[#0e7490] hover:bg-[#0c627a] rounded-lg px-3.5 py-1.5 transition shadow-sm">Edit Entry</button>
+            ${can('admin') ? `<button data-act="delete-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-rose-500 border border-rose-200 hover:bg-rose-50 rounded-lg px-3 py-1.5 transition bg-white">Delete</button>` : ''}
+          </div>`: ''}
         </div>
-        ${can('editor') ? `<div class="flex gap-2 shrink-0">
-          <button data-act="edit-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Edit</button>
-          ${can('admin') ? `<button data-act="delete-ams-entry" data-cid="${esc(c.id)}" data-eid="${sel.id}" class="text-xs font-medium text-rose-500 border border-rose-200 rounded-lg px-3 py-1.5 hover:bg-rose-50 transition">Delete</button>` : ''}
+
+        <!-- Header Title & Description -->
+        <div>
+          <h2 class="text-lg font-bold text-gray-900 tracking-tight">${esc(sel.module || sel.project || 'Untitled Entry')}</h2>
+          <div class="mt-2 p-3.5 bg-gray-50/90 border border-gray-100 rounded-xl text-xs text-gray-700 leading-relaxed">
+            ${esc(sel.description || 'No description provided for this entry.')}
+          </div>
+        </div>
+
+        <!-- History Toggle if edited -->
+        ${hasHistory ? `<div>
+          <button data-act="toggle-ams-history" data-eid="${sel.id}" class="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1">
+            <span>✎</span> Edited — ${isExpanded ? 'Hide' : 'View'} History
+          </button>
+          ${isExpanded ? `<div class="mt-2 pl-3 border-l-2 border-amber-200 space-y-1.5 bg-amber-50/30 p-2.5 rounded-r-xl">
+            ${[...sel.edits].reverse().map(h => `<div class="text-xs text-gray-500 font-mono"><span class="font-semibold text-gray-700">${fmtDate(h.editedAt)}:</span> ${esc(h.description || '—')}</div>`).join('')}
+          </div>` : ''}
         </div>`: ''}
+
+        <!-- 3-Column Attributes Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-1">
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Date Raised</span>
+            <div class="text-xs font-semibold text-gray-800 flex items-center gap-1">
+              <span>📅</span> ${fmtDate(entryDate(sel))}
+            </div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Due Date</span>
+            <div class="text-xs font-semibold ${isOverdue(sel) ? 'text-rose-600' : 'text-gray-800'} flex items-center gap-1">
+              <span>⏰</span> ${sel.dueDate ? fmtDate(sel.dueDate) : '—'}
+            </div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Raised By</span>
+            <div class="text-xs text-gray-800 font-medium truncate flex items-center gap-1">
+              <span>👤</span> ${esc(entryRaisedBy(sel))}
+            </div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Project</span>
+            <div class="text-xs text-gray-800 font-medium truncate">${esc(sel.project || '—')}</div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Mode of Support</span>
+            <div class="text-xs text-gray-800 font-medium">${esc(sel.modeOfSupport || '—')}</div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Hours Logged</span>
+            <div class="text-xs font-bold text-[#0e7490] flex items-center gap-1">
+              <span>⏱</span> ${Number(sel.hours || 0).toFixed(1)} hrs
+            </div>
+          </div>
+          <div class="col-span-2 bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Dependencies</span>
+            <div class="text-xs text-gray-800 font-medium">${esc(sel.dependencies || 'None')}</div>
+          </div>
+        </div>
+
+        <!-- Solution & Notes Callout Card -->
+        <div class="p-3.5 bg-teal-50/40 border border-teal-100/80 rounded-xl">
+          <div class="text-[11px] font-bold text-[#0e7490] uppercase tracking-wide flex items-center gap-1.5 mb-1">
+            <span>💡</span> Solution Discussed &amp; Resolution Notes
+          </div>
+          <div class="text-xs text-gray-800 leading-relaxed">
+            ${sel.solution ? esc(sel.solution) : '<span class="text-gray-400 italic">No solution notes recorded yet.</span>'}
+          </div>
+        </div>
       </div>
-      <div class="text-sm text-gray-800 mb-4 leading-relaxed">${esc(sel.description || '—')}</div>
-      ${hasHistory ? `<div class="mb-4"><button data-act="toggle-ams-history" data-eid="${sel.id}" class="text-xs text-amber-600 hover:text-amber-700 font-medium">✎ edited — ${isExpanded ? 'hide' : 'view'} history</button>
-        ${isExpanded ? `<div class="mt-1.5 pl-2.5 border-l-2 border-amber-200 space-y-1">${[...sel.edits].reverse().map(h => `<div class="text-xs text-gray-400">${fmtDate(h.editedAt)}: ${esc(h.description || '—')}</div>`).join('')}</div>` : ''}
-      </div>`: ''}
-      <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs pt-4 border-t border-gray-100">
-        ${detailRow('Date Raised', fmtDate(entryDate(sel)))}
-        ${detailRow('Due Date', sel.dueDate ? fmtDate(sel.dueDate) : '—', isOverdue(sel) ? 'text-rose-600' : '')}
-        ${detailRow('Raised / Attended By', esc(entryRaisedBy(sel)))}
-        ${detailRow('Project', esc(sel.project || '—'))}
-        ${detailRow('Query Level', esc(sel.queryLevel || '—'))}
-        ${detailRow('Mode of Support', esc(sel.modeOfSupport || '—'))}
-        ${detailRow('Dependencies', esc(sel.dependencies || '—'))}
-        ${detailRow('Hours', `<span class="text-gray-900 font-bold">${Number(sel.hours || 0).toFixed(1)}</span>`)}
-        <div class="col-span-2">${detailRow('Solution Discussed', esc(sel.solution || '—'))}</div>
+
+      <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+        <span>Logged in billing period — hours are automatically tallied in the summary matrix above.</span>
       </div>
     </div>
   </div>`;
     })()}
 </div>`;
 
-  return `<div class="fade" style="padding:20px 20px 36px;max-width:1440px;margin:0 auto;box-sizing:border-box;">
+  return `<div class="fade" style="padding:20px 24px 36px;width:100%;box-sizing:border-box;">
   <div class="k-master-detail-grid">
     ${clientRail}
     <div style="min-width:0;">${detailPanel}</div>

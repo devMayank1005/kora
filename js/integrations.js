@@ -112,12 +112,10 @@ function renderClientDetail(clientId) {
   </div>`: ''}
   ${(() => {
       const bulkOn = S.bulkIntegMode && S.bulkIntegCid === c.id;
-      if (!sorted.length) return `<div class="bg-white rounded-2xl border border-gray-100 text-center py-16 text-gray-400 text-sm">${emptyIcon('search')}No integrations match this filter</div>`;
-      const selId = S.selectedIntegId && sorted.some(i => i.id === S.selectedIntegId) ? S.selectedIntegId : sorted[0].id;
-      const sel = sorted.find(i => i.id === selId);
-      const lu = lastUpdateDate(sel);
-      return `<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-5${bulkOn ? ' ring-2 ring-rose-300' : ''}" style="min-height:420px;">
-    <div class="col-span-2 border-r border-gray-100 overflow-y-auto" style="max-height:640px;">
+      const selTimeline = sel.timeline || [];
+      const selMilestones = sel.milestones || [];
+      return `<div class="bg-white rounded-2xl border border-gray-100 overflow-hidden grid grid-cols-12${bulkOn ? ' ring-2 ring-rose-300' : ''}" style="min-height:460px;">
+    <div class="col-span-5 lg:col-span-4 border-r border-gray-100 overflow-y-auto" style="max-height:680px;">
       <div class="px-3 py-2 bg-gray-50 border-b border-gray-100 text-[11px] font-semibold text-gray-400 uppercase tracking-wide sticky top-0 flex items-center justify-between">
         <span>${sorted.length} integration${sorted.length !== 1 ? 's' : ''}</span>
         ${bulkOn ? `<input type="checkbox" data-act="toggle-bulk-integ-all" data-cid="${esc(c.id)}" ${sorted.every(i => S.bulkIntegSelected.has(i.id)) ? 'checked' : ''} class="rounded"/>` : `<select data-act="integ-sort-select" class="text-[10px] border-none bg-transparent text-gray-400 focus:outline-none">${cols.map(([k, l]) => `<option value="${esc(k)}"${S.sort.key === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`}
@@ -132,30 +130,82 @@ function renderClientDetail(clientId) {
               <span class="text-xs shrink-0 ${isOverdue(i) ? 'text-rose-600 font-semibold' : 'text-gray-400'}">${fmtDate(i.dueDate)}</span>
             </div>
             <div class="text-xs text-gray-500 truncate mt-0.5">${i.description ? esc(i.description) : '—'}</div>
-            <div class="flex gap-1.5 mt-1.5">${sbadge(i.status)}${overdueBadge(i)}${staleBadge(i)}</div>
+            <div class="flex gap-1.5 mt-1.5 flex-wrap">${sbadge(i.status)}${overdueBadge(i)}${staleBadge(i)}</div>
           </div>
         </div>`;
       }).join('')}
     </div>
-    <div class="col-span-3 p-5 overflow-y-auto" style="max-height:640px;">
-      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div class="flex items-center gap-2 flex-wrap">${sbadge(sel.status)}${overdueBadge(sel)}</div>
-        <div class="flex items-center gap-2">
-          <button data-act="copy-link" data-url="${esc((window?.location?.origin || '') + viewToPath('integ-detail', { clientId: c.id, integId: sel.id }))}" title="Copy shareable link" class="text-xs font-medium text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-[#0e7490] hover:text-[#0e7490] transition">🔗 Copy Link</button>
-          <button data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs font-medium text-[#0e7490] border border-[#0e7490]/30 rounded-lg px-3 py-1.5 hover:bg-[#0e7490]/5 transition">Open Full Record →</button>
+    <div class="col-span-7 lg:col-span-8 p-6 overflow-y-auto flex flex-col justify-between" style="max-height:680px;">
+      <div class="space-y-4">
+        <!-- Top Toolbar -->
+        <div class="flex items-center justify-between pb-3 border-b border-gray-100 flex-wrap gap-2">
+          <div class="flex items-center gap-2 flex-wrap">${sbadge(sel.status)}${overdueBadge(sel)}${staleBadge(sel)}</div>
+          <div class="flex items-center gap-2">
+            <button data-act="copy-link" data-url="${esc((window?.location?.origin || '') + viewToPath('integ-detail', { clientId: c.id, integId: sel.id }))}" title="Copy shareable link" class="text-xs font-medium text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-[#0e7490] hover:text-[#0e7490] transition bg-white">🔗 Copy Link</button>
+            <button data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs font-semibold text-white bg-[#0e7490] hover:bg-[#0c627a] rounded-lg px-3.5 py-1.5 transition shadow-sm">Open Full Record →</button>
+          </div>
         </div>
+
+        <!-- Header Info -->
+        <div>
+          <h2 class="text-lg font-bold text-gray-900 tracking-tight">${esc(sel.name)}</h2>
+          <p class="text-xs text-gray-500 mt-0.5">${sel.description ? esc(sel.description) : 'No description provided.'}</p>
+        </div>
+
+        <!-- Next Action Callout (if present) -->
+        ${sel.nextAction ? `<div class="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl">
+          <div class="text-[11px] font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5 mb-1">
+            <span>⚡</span> Next Action
+          </div>
+          <div class="text-xs text-amber-900 leading-relaxed">${esc(sel.nextAction)}</div>
+        </div>` : ''}
+
+        <!-- 3-Column Attributes Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Status</span>
+            <div>${can('editor') ? `<select data-act="inline-status" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490] w-full">${STATUSES.map(s => `<option value="${esc(s)}"${s === sel.status ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>` : sbadge(sel.status)}</div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Assignee</span>
+            <div>${can('editor') ? `<select data-act="inline-assignee" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490] w-full">${assigneeOptionsOnly(sel.assignee)}</select>` : `<div class="flex items-center gap-1.5"><span class="w-5 h-5 rounded-full bg-[#0e7490]/10 text-[#0e7490] text-[10px] font-bold flex items-center justify-center">${esc((sel.assignee || '?')[0])}</span><span class="text-xs text-gray-800 font-medium truncate">${esc(sel.assignee || 'Unassigned')}</span></div>`}</div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Due Date</span>
+            <div class="text-xs font-semibold ${isOverdue(sel) ? 'text-rose-600' : 'text-gray-800'} flex items-center gap-1">
+              <span>📅</span> ${fmtDate(sel.dueDate)}
+            </div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Effort Load</span>
+            <div>${can('editor') ? `<select data-act="inline-effort" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white focus:outline-none focus:ring-2 focus:ring-[#0e7490] w-full"><option value="1"${sel.effortWeight === 1 ? ' selected' : ''}>Heavy — 1.0</option><option value="0.5"${(sel.effortWeight === 0.5 || sel.effortWeight === undefined) ? ' selected' : ''}>Medium — 0.5</option><option value="0.25"${sel.effortWeight === 0.25 ? ' selected' : ''}>Light — 0.25</option></select>` : `<span class="text-xs text-gray-800 font-semibold">${sel.effortWeight === 1 ? 'Heavy (1.0)' : sel.effortWeight === 0.25 ? 'Light (0.25)' : 'Medium (0.5)'}</span>`}</div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Last Update</span>
+            <div class="text-xs text-gray-800 font-medium">${lu ? fmtDate(lu) : '<span class="text-amber-600 text-xs">No updates yet</span>'}</div>
+          </div>
+          <div class="bg-gray-50/80 rounded-xl p-3 border border-gray-100">
+            <span class="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Milestones</span>
+            <div class="text-xs text-gray-800 font-medium">${selMilestones.length ? `${selMilestones.filter(m => m.completed).length}/${selMilestones.length} Completed` : 'No milestones'}</div>
+          </div>
+        </div>
+
+        <!-- Activity Feed Preview -->
+        ${selTimeline.length ? `<div class="mt-3 pt-3 border-t border-gray-100">
+          <span class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Recent Activity Feed</span>
+          <div class="space-y-2">
+            ${[...selTimeline].reverse().slice(0, 2).map(t => `<div class="text-xs bg-gray-50/60 border border-gray-100 rounded-lg p-2.5 flex items-start gap-2">
+              <span class="text-gray-400 font-mono text-[10px] shrink-0 mt-0.5">${fmtDate(t.date)}</span>
+              <span class="text-gray-700 flex-1 leading-snug">${esc(t.text)}</span>
+            </div>`).join('')}
+          </div>
+        </div>` : ''}
       </div>
-      <h3 class="text-base font-semibold text-gray-900 mb-1">${esc(sel.name)}</h3>
-      <div class="text-sm text-gray-600 mb-4 leading-relaxed">${sel.description ? esc(sel.description) : '—'}</div>
-      <div class="grid grid-cols-2 gap-x-6 gap-y-3 text-xs pt-4 border-t border-gray-100">
-        <div><span class="text-gray-400">Status</span><div class="mt-1">${can('editor') ? `<select data-act="inline-status" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490]">${STATUSES.map(s => `<option value="${esc(s)}"${s === sel.status ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>` : sbadge(sel.status)}</div></div>
-        <div><span class="text-gray-400">Assignee</span><div class="mt-1">${can('editor') ? `<select data-act="inline-assignee" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490] max-w-[160px]">${assigneeOptionsOnly(sel.assignee)}</select>` : `<span class="text-sm text-gray-700 font-medium">${esc(sel.assignee || '—')}</span>`}</div></div>
-        <div><span class="text-gray-400">Due Date</span><div class="text-sm text-gray-700 font-medium mt-1">${fmtDate(sel.dueDate)}</div></div>
-        <div><span class="text-gray-400">Effort</span><div class="mt-1">${can('editor') ? `<select data-act="inline-effort" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"><option value="1"${sel.effortWeight === 1 ? ' selected' : ''}>Heavy — 1.0</option><option value="0.5"${(sel.effortWeight === 0.5 || sel.effortWeight === undefined) ? ' selected' : ''}>Medium — 0.5</option><option value="0.25"${sel.effortWeight === 0.25 ? ' selected' : ''}>Light — 0.25</option></select>` : `<span class="text-sm text-gray-700 font-medium">${sel.effortWeight ?? 0.5}</span>`}</div></div>
-        <div><span class="text-gray-400">Last Update</span><div class="text-sm text-gray-700 font-medium mt-1">${lu ? fmtDate(lu) : '<span class="text-amber-600 text-xs font-medium">No updates</span>'}</div></div>
-        <div class="col-span-2"><span class="text-gray-400">Next Action</span><div class="text-sm text-gray-700 font-medium mt-1">${sel.nextAction ? esc(sel.nextAction) : '—'}</div></div>
+
+      <div class="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-[11px] text-gray-400">
+        <span>Detailed timeline history and milestone configurations reside in the full record.</span>
+        <button data-act="open-integ" data-cid="${esc(c.id)}" data-iid="${esc(sel.id)}" class="text-[#0e7490] hover:underline font-semibold">View Record →</button>
       </div>
-      <div class="mt-5 pt-4 border-t border-gray-100 text-xs text-gray-400">Activity feed &amp; milestones live on the full record — use "Open Full Record →" above.</div>
     </div>
   </div>`;
     })()}
@@ -188,7 +238,7 @@ function renderClientDetail(clientId) {
   // min-width:auto, which refuses to shrink below its content's natural
   // width; without this override, the inner 5-col list+detail grid could
   // force the whole page wider than the viewport instead of wrapping/shrinking.
-  return `<div class="fade" style="padding:20px 20px 36px;max-width:1440px;margin:0 auto;box-sizing:border-box;">
+  return `<div class="fade" style="padding:20px 24px 36px;width:100%;box-sizing:border-box;">
   <div class="k-master-detail-grid">
     ${clientRail}
     <div style="min-width:0;">${listAndDetail}</div>
