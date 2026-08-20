@@ -8,5 +8,7 @@ node_modules/
 Thumbs.db
 graphify-out/
 .env*
+.next/
+*.tsbuildinfo
 PROJECT_DEEP_DIVE.md
 CLAUDE.md
