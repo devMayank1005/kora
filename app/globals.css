@@ -9,7 +9,7 @@
   --mute-2: #94a3b8;
   --line: #e2e8f0;
   --line-2: #eef2f7;
-  --surface: #f8fafc;
+  --surface: #f5f9fa;
   --paper: #ffffff;
   --teal: #0e7490;
   --teal-hi: #eff6ff;
@@ -20,10 +20,9 @@
   --amber-hi: #fefce8;
   --red: #dc2626;
   --red-hi: #fef2f2;
-  --radius-s: 3px;
-  --radius: 4px;
-  --radius-l: 6px;
-  --pill: 9999px;
+  --radius-s: 4px;
+  --radius: 8px;
+  --radius-l: 12px;
   --font: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
@@ -36,8 +35,8 @@ html.dark {
   --mute-2: #64748b;
   --line: #334155;
   --line-2: #1e293b;
-  --surface: #0f172a;
-  --paper: #1e293b;
+  --surface: #0b1329;
+  --paper: #131c38;
   --teal-hi: rgba(14, 116, 144, 0.15);
   --teal-lo: rgba(14, 116, 144, 0.25);
   --green-hi: rgba(21, 128, 61, 0.15);
@@ -53,13 +52,14 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Master-detail responsive grid utility */
 .k-master-detail-grid {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
-  gap: 1.5rem;
+  gap: 1.25rem;
   align-items: start;
 }
 
@@ -67,4 +67,20 @@ body {
   .k-master-detail-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
 }
