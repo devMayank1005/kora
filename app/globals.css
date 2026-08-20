@@ -1,103 +1,104 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 :root {
-  /* Kora Operations System - Surface Palette */
-  --surface: #f8f9ff;
-  --surface-dim: #cbdbf5;
-  --surface-bright: #f8f9ff;
-  --surface-container-lowest: #ffffff;
-  --surface-container-low: #eff4ff;
-  --surface-container: #e1e9f6;
-  --surface-container-high: #d6e1f0;
-  --surface-container-highest: #ccd8ea;
+  /* Brand New Color System - Executive Obsidian & Precision Cyan */
+  --bg-app: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-subtle: #f1f5f9;
+  --bg-muted: #e2e8f0;
+  
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
 
-  /* On-Surface & Text */
-  --on-surface: #1a1c1e;
-  --on-surface-variant: #43474e;
-  --outline: #73777f;
-  --outline-variant: #c3c7cf;
+  --border-subtle: rgba(226, 232, 240, 0.8);
+  --border-strong: #cbd5e1;
 
-  /* Brand Primary */
-  --primary: #0e7490;
-  --on-primary: #ffffff;
-  --primary-container: #c5e8ef;
-  --on-primary-container: #001f26;
+  /* Accent Brand - Cyan / Teal / Indigo */
+  --brand-cyan: #0891b2;
+  --brand-cyan-light: #ecfeff;
+  --brand-cyan-glow: rgba(8, 145, 178, 0.18);
+  
+  --brand-indigo: #4f46e5;
+  --brand-indigo-light: #eef2ff;
 
-  /* Secondary */
-  --secondary: #4d616c;
-  --on-secondary: #ffffff;
-  --secondary-container: #d0e6f2;
-  --on-secondary-container: #081e27;
+  --status-green: #10b981;
+  --status-green-bg: #ecfdf5;
+  --status-amber: #f59e0b;
+  --status-amber-bg: #fffbeb;
+  --status-rose: #ef4444;
+  --status-rose-bg: #fef2f2;
 
-  /* Tertiary */
-  --tertiary: #5d5b7d;
-  --on-tertiary: #ffffff;
-  --tertiary-container: #e3dffb;
-  --on-tertiary-container: #191836;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-  /* Error & Urgency */
-  --error: #ba1a1a;
-  --on-error: #ffffff;
-  --error-container: #ffdad6;
-  --on-error-container: #410002;
-
-  /* Typography & Geometry */
-  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --shadow-subtle: 0 1px 3px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
+  --shadow-card: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
+  --shadow-float: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
 }
 
 html.dark {
-  --surface: #0b121e;
-  --surface-dim: #080d16;
-  --surface-bright: #162030;
-  --surface-container-lowest: #0e1726;
-  --surface-container-low: #131d2e;
-  --surface-container: #19263b;
-  --surface-container-high: #213049;
-  --surface-container-highest: #2b3d5c;
+  --bg-app: #090d16;
+  --bg-card: #0f172a;
+  --bg-subtle: #1e293b;
+  --bg-muted: #334155;
 
-  --on-surface: #f1f5f9;
-  --on-surface-variant: #94a3b8;
-  --outline: #64748b;
-  --outline-variant: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
 
-  --primary: #22d3ee;
-  --on-primary: #003642;
-  --primary-container: #004e5e;
-  --on-primary-container: #c5e8ef;
+  --border-subtle: rgba(30, 41, 59, 0.8);
+  --border-strong: #334155;
 
-  --secondary: #b1cbd8;
-  --on-secondary: #1d333d;
-  --secondary-container: #354a54;
-  --on-secondary-container: #d0e6f2;
+  --brand-cyan: #06b6d4;
+  --brand-cyan-light: rgba(6, 182, 212, 0.12);
+  --brand-cyan-glow: rgba(6, 182, 212, 0.25);
 
-  --tertiary: #c7c3e8;
-  --on-tertiary: #2f2d4d;
-  --tertiary-container: #454364;
-  --on-tertiary-container: #e3dffb;
+  --brand-indigo: #818cf8;
+  --brand-indigo-light: rgba(129, 140, 248, 0.12);
 
-  --error: #ffb4ab;
-  --on-error: #690005;
-  --error-container: #93000a;
-  --on-error-container: #ffdad6;
+  --status-green: #34d399;
+  --status-green-bg: rgba(52, 211, 153, 0.12);
+  --status-amber: #fbbf24;
+  --status-amber-bg: rgba(251, 191, 36, 0.12);
+  --status-rose: #f87171;
+  --status-rose-bg: rgba(248, 113, 113, 0.12);
+
+  --shadow-subtle: 0 1px 3px 0 rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.2);
+  --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
 }
 
 body {
-  font-family: var(--font-family);
-  background-color: var(--surface);
-  color: var(--on-surface);
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
   min-height: 100vh;
   margin: 0;
   padding: 0;
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Master-detail responsive grid utility */
+/* Glassmorphism Surface */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+}
+
+html.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+/* Master-detail responsive grid */
 .k-master-detail-grid {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 1.5rem;
   align-items: start;
 }
@@ -108,7 +109,7 @@ body {
   }
 }
 
-/* Custom scrollbars */
+/* Custom Scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -117,9 +118,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(115, 119, 127, 0.25);
+  background: rgba(148, 163, 184, 0.3);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(115, 119, 127, 0.45);
+  background: rgba(148, 163, 184, 0.6);
 }
