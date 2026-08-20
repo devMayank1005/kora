@@ -2,46 +2,45 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #1e293b;
-  --ink-2: #0f172a;
-  --ink-3: #475569;
+  --ink: #0f172a;
+  --ink-2: #1e293b;
+  --ink-3: #334155;
   --mute: #64748b;
   --mute-2: #94a3b8;
   --line: #e2e8f0;
-  --line-2: #eef2f7;
-  --surface: #f5f9fa;
-  --paper: #ffffff;
+  --line-subtle: #f1f5f9;
+  --surface: #f8fafc;
+  --surface-raised: #ffffff;
   --teal: #0e7490;
-  --teal-hi: #eff6ff;
-  --teal-lo: #dbeafe;
-  --green: #15803d;
-  --green-hi: #f0fdf4;
-  --amber: #a16207;
-  --amber-hi: #fefce8;
+  --teal-hover: #0c6177;
+  --teal-soft: #f0f9ff;
+  --teal-border: #bae6fd;
+  --blue: #2563eb;
+  --green: #16a34a;
+  --green-soft: #f0fdf4;
+  --amber: #d97706;
+  --amber-soft: #fffbeb;
   --red: #dc2626;
-  --red-hi: #fef2f2;
-  --radius-s: 4px;
-  --radius: 8px;
-  --radius-l: 12px;
+  --red-soft: #fef2f2;
   --font: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
 html.dark {
   --ink: #f8fafc;
-  --ink-2: #ffffff;
+  --ink-2: #e2e8f0;
   --ink-3: #cbd5e1;
   --mute: #94a3b8;
   --mute-2: #64748b;
-  --line: #334155;
-  --line-2: #1e293b;
-  --surface: #0b1329;
-  --paper: #131c38;
-  --teal-hi: rgba(14, 116, 144, 0.15);
-  --teal-lo: rgba(14, 116, 144, 0.25);
-  --green-hi: rgba(21, 128, 61, 0.15);
-  --amber-hi: rgba(161, 98, 7, 0.15);
-  --red-hi: rgba(220, 38, 38, 0.15);
+  --line: #1e293b;
+  --line-subtle: #0f172a;
+  --surface: #090d16;
+  --surface-raised: #0f172a;
+  --teal-soft: rgba(14, 116, 144, 0.15);
+  --teal-border: rgba(14, 116, 144, 0.3);
+  --green-soft: rgba(22, 163, 74, 0.15);
+  --amber-soft: rgba(217, 119, 6, 0.15);
+  --red-soft: rgba(220, 38, 38, 0.15);
 }
 
 body {
@@ -58,7 +57,7 @@ body {
 /* Master-detail responsive grid utility */
 .k-master-detail-grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
 }
@@ -71,16 +70,16 @@ body {
 
 /* Smooth custom scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.4);
+  background: rgba(148, 163, 184, 0.35);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.7);
+  background: rgba(148, 163, 184, 0.6);
 }
