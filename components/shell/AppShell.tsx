@@ -36,8 +36,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <RolePreviewBanner />
         <CommandPalette />
 
-        {/* Top Header Bar */}
-        <header className="sticky top-0 z-20 flex h-13 items-center justify-between border-b border-slate-200/80 bg-white/90 px-6 backdrop-blur-md dark:border-slate-800/80 dark:bg-slate-900/90">
+        {/* Top Header Bar (Fixed 64px) */}
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[#c3c7cf]/30 bg-[#ffffff]/90 px-6 backdrop-blur-md dark:border-slate-800/80 dark:bg-[#0e1726]/90">
           <Breadcrumbs />
 
           <div className="flex items-center gap-2.5">

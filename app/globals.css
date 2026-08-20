@@ -1,52 +1,92 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 :root {
-  --ink: #0f172a;
-  --ink-2: #1e293b;
-  --ink-3: #334155;
-  --mute: #64748b;
-  --mute-2: #94a3b8;
-  --line: #e2e8f0;
-  --line-subtle: #f1f5f9;
-  --surface: #f8fafc;
-  --surface-raised: #ffffff;
-  --teal: #0e7490;
-  --teal-hover: #0c6177;
-  --teal-soft: #f0f9ff;
-  --teal-border: #bae6fd;
-  --blue: #2563eb;
-  --green: #16a34a;
-  --green-soft: #f0fdf4;
-  --amber: #d97706;
-  --amber-soft: #fffbeb;
-  --red: #dc2626;
-  --red-soft: #fef2f2;
-  --font: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  /* Kora Operations System - Surface Palette */
+  --surface: #f8f9ff;
+  --surface-dim: #cbdbf5;
+  --surface-bright: #f8f9ff;
+  --surface-container-lowest: #ffffff;
+  --surface-container-low: #eff4ff;
+  --surface-container: #e1e9f6;
+  --surface-container-high: #d6e1f0;
+  --surface-container-highest: #ccd8ea;
+
+  /* On-Surface & Text */
+  --on-surface: #1a1c1e;
+  --on-surface-variant: #43474e;
+  --outline: #73777f;
+  --outline-variant: #c3c7cf;
+
+  /* Brand Primary */
+  --primary: #0e7490;
+  --on-primary: #ffffff;
+  --primary-container: #c5e8ef;
+  --on-primary-container: #001f26;
+
+  /* Secondary */
+  --secondary: #4d616c;
+  --on-secondary: #ffffff;
+  --secondary-container: #d0e6f2;
+  --on-secondary-container: #081e27;
+
+  /* Tertiary */
+  --tertiary: #5d5b7d;
+  --on-tertiary: #ffffff;
+  --tertiary-container: #e3dffb;
+  --on-tertiary-container: #191836;
+
+  /* Error & Urgency */
+  --error: #ba1a1a;
+  --on-error: #ffffff;
+  --error-container: #ffdad6;
+  --on-error-container: #410002;
+
+  /* Typography & Geometry */
+  --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
 html.dark {
-  --ink: #f8fafc;
-  --ink-2: #e2e8f0;
-  --ink-3: #cbd5e1;
-  --mute: #94a3b8;
-  --mute-2: #64748b;
-  --line: #1e293b;
-  --line-subtle: #0f172a;
-  --surface: #090d16;
-  --surface-raised: #0f172a;
-  --teal-soft: rgba(14, 116, 144, 0.15);
-  --teal-border: rgba(14, 116, 144, 0.3);
-  --green-soft: rgba(22, 163, 74, 0.15);
-  --amber-soft: rgba(217, 119, 6, 0.15);
-  --red-soft: rgba(220, 38, 38, 0.15);
+  --surface: #0b121e;
+  --surface-dim: #080d16;
+  --surface-bright: #162030;
+  --surface-container-lowest: #0e1726;
+  --surface-container-low: #131d2e;
+  --surface-container: #19263b;
+  --surface-container-high: #213049;
+  --surface-container-highest: #2b3d5c;
+
+  --on-surface: #f1f5f9;
+  --on-surface-variant: #94a3b8;
+  --outline: #64748b;
+  --outline-variant: #334155;
+
+  --primary: #22d3ee;
+  --on-primary: #003642;
+  --primary-container: #004e5e;
+  --on-primary-container: #c5e8ef;
+
+  --secondary: #b1cbd8;
+  --on-secondary: #1d333d;
+  --secondary-container: #354a54;
+  --on-secondary-container: #d0e6f2;
+
+  --tertiary: #c7c3e8;
+  --on-tertiary: #2f2d4d;
+  --tertiary-container: #454364;
+  --on-tertiary-container: #e3dffb;
+
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
 }
 
 body {
-  font-family: var(--font);
+  font-family: var(--font-family);
   background-color: var(--surface);
-  color: var(--ink);
+  color: var(--on-surface);
   min-height: 100vh;
   margin: 0;
   padding: 0;
@@ -57,8 +97,8 @@ body {
 /* Master-detail responsive grid utility */
 .k-master-detail-grid {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 1.25rem;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 1.5rem;
   align-items: start;
 }
 
@@ -68,7 +108,7 @@ body {
   }
 }
 
-/* Smooth custom scrollbars */
+/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -77,9 +117,9 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: rgba(115, 119, 127, 0.25);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
+  background: rgba(115, 119, 127, 0.45);
 }
